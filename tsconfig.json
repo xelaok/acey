@@ -1,0 +1,20 @@
+{
+    "compilerOptions": {
+        "baseUrl": "src",
+        "target": "esnext",
+        "module": "esnext",
+        "moduleResolution": "node",
+        "sourceMap": true,
+        "noImplicitAny": true,
+        "strictNullChecks": false,
+        "allowSyntheticDefaultImports": true,
+        "preserveSymlinks": true,
+        "lib": ["es6", "dom"],
+        "paths": {
+            "@@libs/*": ["libs"]
+        }
+    },
+    "include": [
+        "src/**/*"
+    ]
+}
