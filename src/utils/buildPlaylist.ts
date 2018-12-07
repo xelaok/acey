@@ -4,7 +4,7 @@ function buildPlaylist(streamsPath: string, channels: Channel[]): string {
     let result = "#EXTM3U\n";
 
     for (const c of channels) {
-        result += `#EXTINF:-1,${c.name} (${getCategoryText(c.category)})\n${streamsPath}/${formatUrl(c.name)}\n`;
+        result += `#EXTINF:-1,${c.name} (${getCategoryText(c.category)})\n${streamsPath}/${c.id}\n`;
     }
 
     return result;
@@ -29,10 +29,6 @@ const categoryTextDict = {
 
 function getCategoryText(category: ChannelCategory): string {
     return categoryTextDict[category] || categoryTextDict[ChannelCategory.Other];
-}
-
-function formatUrl(name: string): string {
-    return Buffer.from(name).toString("hex");
 }
 
 export { buildPlaylist }

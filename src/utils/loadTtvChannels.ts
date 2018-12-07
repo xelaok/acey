@@ -1,10 +1,10 @@
-import { ChannelsRepository } from "../services/ChannelsRepository";
+import { ChannelRepository } from "../services/ChannelRepository";
 import { fetchTtvChannels } from "./fetchTtvChannels";
 import { getChannelsFromTtvChannels } from "./getChannelsFromTtvChannels";
 
 async function loadTtvChannels(
     playlistUrl: string,
-    channelsRepository: ChannelsRepository
+    channelsRepository: ChannelRepository
 ): Promise<void> {
     console.log("Load TTV channels...");
     try {
@@ -12,7 +12,7 @@ async function loadTtvChannels(
         console.log(`Load TTV channels success (${ttvChannels.length} items).`);
 
         const channels = getChannelsFromTtvChannels(ttvChannels);
-        channelsRepository.update(channels, false, true);
+        channelsRepository.update(channels);
     }
     catch (error) {
         console.log("Load TTV channels failed.");

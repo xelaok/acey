@@ -1,10 +1,8 @@
-import { Server, Request, ResponseToolkit, ResponseObject, Plugin } from "hapi";
+import { Server, Request, ResponseToolkit } from "hapi";
 import * as consts from "./consts";
-import { RejectedCids } from "./services/RejectedCids";
-import { RejectedCidsCleaner } from "./services/RejectedCidsCleaner";
-import { ChannelsRepository } from "./services/ChannelsRepository";
+import { ChannelRepository } from "./services/ChannelRepository";
 import { ChannelsLoader } from "./services/ChannelsLoader";
-import { StreamPool } from "./services/StreamPool";
+import { ChannelPool } from "./services/ChannelPool";
 import { buildFullPlaylist } from "./utils/buildFullPlaylist";
 import { buildSelectedPlaylist } from "./utils/buildSelectedPlaylist";
 
@@ -19,15 +17,13 @@ async function main(): Promise<void> {
         host: consts.BIND_HOST,
         port: consts.BIND_PORT,
     });
-    const rejectedCids = new RejectedCids();
-    const rejectedCidsCleaner = new RejectedCidsCleaner(rejectedCids);
-    const channelsRepository = new ChannelsRepository(rejectedCids);
+    const channelRepository = new ChannelRepository();
     const channelsLoader = new ChannelsLoader(
         consts.TTV_PLAYLIST_URL,
         consts.TTV_PLAYLIST_UPDATE_INTERVAL,
-        channelsRepository,
+        channelRepository,
     );
-    const streamPool = new StreamPool(consts.IPROXY_PATH, channelsRepository);
+    const streamPool = new ChannelPool(consts.IPROXY_PATH, channelRepository);
 
     server.route({
         method: "GET",
@@ -37,7 +33,7 @@ async function main(): Promise<void> {
 
             const content = buildFullPlaylist(
                 streamsPath,
-                channelsRepository,
+                channelRepository,
             );
 
             return h
@@ -56,7 +52,7 @@ async function main(): Promise<void> {
             const content = buildSelectedPlaylist(
                 streamsPath,
                 consts.selectedChannelsSet,
-                channelsRepository,
+                channelRepository,
             );
 
             return h
@@ -75,7 +71,5 @@ async function main(): Promise<void> {
     });
 
     await channelsLoader.start();
-
-    rejectedCidsCleaner.start();
-    server.start();
+    await server.start();
 }

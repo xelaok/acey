@@ -1,21 +1,21 @@
-import { ChannelsRepository } from "./ChannelsRepository";
+import { ChannelRepository } from "./ChannelRepository";
 import { loadTtvChannels } from "../utils/loadTtvChannels";
 
 class ChannelsLoader {
     private readonly playlistUrl: string;
     private readonly intervalSeconds: number;
-    private readonly channelsRepository: ChannelsRepository;
+    private readonly channelRepository: ChannelRepository;
     private timeout: NodeJS.Timeout;
     private isRunning: boolean = false;
 
     constructor(
         playlistUrl: string,
         intervalSeconds: number,
-        channelsRepository: ChannelsRepository
+        channelRepository: ChannelRepository
     ) {
         this.playlistUrl = playlistUrl;
         this.intervalSeconds = intervalSeconds;
-        this.channelsRepository = channelsRepository;
+        this.channelRepository = channelRepository;
     }
 
     async start(): Promise<void> {
@@ -25,11 +25,11 @@ class ChannelsLoader {
 
         this.isRunning = true;
 
-        await loadTtvChannels(this.playlistUrl, this.channelsRepository);
+        await loadTtvChannels(this.playlistUrl, this.channelRepository);
 
         this.timeout = global.setInterval(
             async () => {
-                await loadTtvChannels(this.playlistUrl, this.channelsRepository);
+                await loadTtvChannels(this.playlistUrl, this.channelRepository);
             },
             this.intervalSeconds * 1000,
         );

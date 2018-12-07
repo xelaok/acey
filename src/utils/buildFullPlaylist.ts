@@ -1,9 +1,10 @@
-import { ChannelsRepository } from "../services/ChannelsRepository";
+import { ChannelRepository } from "../services/ChannelRepository";
 import { sortChannels } from "./sortChannels";
 import { buildPlaylist } from "./buildPlaylist";
 
-function buildFullPlaylist(streamsPath: string, channelsRepository: ChannelsRepository) {
-    const channels = Array.from(channelsRepository.items());
+function buildFullPlaylist(streamsPath: string, channelRepository: ChannelRepository) {
+    const channels = Array.from(channelRepository.all());
+
     const sortedChannels = sortChannels(channels);
     return buildPlaylist(streamsPath, sortedChannels);
 }
