@@ -1,5 +1,7 @@
 import { ChannelRepository } from "./ChannelRepository";
-import { loadAceChannels } from "../utils/loadAceChannels";
+import { fetchAcePlaylist } from "../utils/playlist/fetchAcePlaylist";
+import { parseAcePlaylist } from "../utils/playlist/parseAcePlaylist";
+import { getChannelFromAceChannel } from "../utils/channel/getChannelFromAceChannel";
 
 class ChannelsLoader {
     private readonly playlistUrl: string;
@@ -25,12 +27,10 @@ class ChannelsLoader {
 
         this.isRunning = true;
 
-        await loadAceChannels(this.playlistUrl, this.channelRepository);
+        await this.loadAceChannels();
 
         this.timeout = global.setInterval(
-            async () => {
-                await loadAceChannels(this.playlistUrl, this.channelRepository);
-            },
+            () => this.loadAceChannels(),
             this.intervalSeconds * 1000,
         );
 
@@ -44,6 +44,22 @@ class ChannelsLoader {
 
         this.isRunning = false;
         global.clearInterval(this.timeout);
+    }
+
+    private async loadAceChannels(): Promise<void> {
+        console.log("Load Ace channels...");
+        try {
+            const acePlaylist = await fetchAcePlaylist(this.playlistUrl);
+            const aceChannels = parseAcePlaylist(acePlaylist);
+            const channels = aceChannels.map(ac => getChannelFromAceChannel(ac));
+
+            this.channelRepository.update(channels);
+            console.log(`Load Ace channels success (${channels.length} items).`);
+        }
+        catch (error) {
+            console.log("Load Ace channels failed.");
+            console.error(error);
+        }
     }
 }
 

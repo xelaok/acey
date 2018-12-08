@@ -1,9 +1,11 @@
-import { Channel, ChannelCategory } from "../types";
+import { sortBy } from "lodash";
+import { Channel, ChannelCategory } from "../../types";
 
 function buildPlaylist(streamsPath: string, channels: Channel[]): string {
     let result = "#EXTM3U\n";
+    const sortedChannels = sortChannels(channels);
 
-    for (const c of channels) {
+    for (const c of sortedChannels) {
         result += `#EXTINF:-1,${c.name} (${getCategoryText(c.category)})\n${streamsPath}/${c.id}\n`;
     }
 
@@ -29,6 +31,10 @@ const categoryTextDict = {
 
 function getCategoryText(category: ChannelCategory): string {
     return categoryTextDict[category] || categoryTextDict[ChannelCategory.Other];
+}
+
+function sortChannels(channels: Channel[]): Channel[] {
+    return sortBy(channels, ["category", "name"]);
 }
 
 export { buildPlaylist }

@@ -1,4 +1,4 @@
-import { ChannelCategory } from "../types";
+import { ChannelCategory } from "../../types";
 
 const map: { [key: string]: ChannelCategory } = {
     "informational": ChannelCategory.Other,

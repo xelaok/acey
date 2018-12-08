@@ -1,8 +1,9 @@
 type StreamFeatures = {
-    playbackUrl: string,
+    isLive: boolean,
     statUrl: string,
     commandUrl: string,
-    eventUrl: string,
+    playbackUrl: string,
+    playbackSessionId: string,
 }
 
 export { StreamFeatures }

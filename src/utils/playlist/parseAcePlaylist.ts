@@ -1,11 +1,11 @@
-import { parseTextLines } from "./parseTextLines";
+import { splitLines } from "../../libs/misc/splitLines";
 import { parseChannelCategory } from "./parseChannelCategory";
-import { ChannelCategory, AceChannel } from "../types";
+import { ChannelCategory, AceChannel } from "../../types";
 
 function parseAcePlaylist(content: string): AceChannel[] {
     let result: AceChannel[] = [];
 
-    const lines = parseTextLines(content, true, true);
+    const lines = splitLines(content, true, true);
     const lineCount = lines.length;
 
     let k = 0;

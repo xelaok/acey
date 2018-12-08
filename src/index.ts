@@ -3,8 +3,8 @@ import * as consts from "./consts";
 import { ChannelRepository } from "./services/ChannelRepository";
 import { ChannelsLoader } from "./services/ChannelsLoader";
 import { ChannelPool } from "./services/ChannelPool";
-import { buildFullPlaylist } from "./utils/buildFullPlaylist";
-import { buildSelectedPlaylist } from "./utils/buildSelectedPlaylist";
+import { buildPlaylist } from "./utils/playlist/buildPlaylist";
+import { buildSelectedPlaylist } from "./utils/playlist/buildSelectedPlaylist";
 
 main();
 
@@ -31,9 +31,9 @@ async function main(): Promise<void> {
         handler: (request: Request, h: ResponseToolkit) => {
             const streamsPath = `${consts.PUBLIC_PATH}/c`;
 
-            const content = buildFullPlaylist(
+            const content = buildPlaylist(
                 streamsPath,
-                channelRepository,
+                channelRepository.getAll(),
             );
 
             return h
@@ -51,8 +51,8 @@ async function main(): Promise<void> {
 
             const content = buildSelectedPlaylist(
                 streamsPath,
+                channelRepository.getAll(),
                 consts.selectedChannelsSet,
-                channelRepository,
             );
 
             return h

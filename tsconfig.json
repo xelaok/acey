@@ -10,9 +10,7 @@
         "allowSyntheticDefaultImports": true,
         "preserveSymlinks": true,
         "lib": ["es6", "dom"],
-        "paths": {
-            "@@libs/ace-api": ["libs/ace-api"]
-        }
+        "paths": {}
     },
     "include": [
         "src/**/*"

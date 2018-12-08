@@ -2,10 +2,10 @@ import Stream from "stream";
 import * as Hapi from "hapi";
 import { Response } from "node-fetch";
 import uuidv4 from "uuid";
-import * as aceApi from "@@libs/ace-api";
+import * as aceApi from "../libs/ace-api";
+import { Timer } from "../libs/misc/Timer";
+import { fireAndForget } from "../libs/misc/fireAndForget";
 import { ChannelRepository } from "./ChannelRepository";
-import { Timer } from "./Timer";
-import { fireAndForget } from "../utils/fireAndForget";
 import { Channel } from "../types";
 
 type ChannelData = {

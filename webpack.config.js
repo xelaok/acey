@@ -29,9 +29,7 @@ function getConfig(buildConfig) {
         },
         resolve: {
             extensions: [".js", ".ts", ".tsx"],
-            alias: {
-              "@@libs": path.resolve("src/libs"),
-            },
+            alias: {},
         },
         module: {
             rules: [

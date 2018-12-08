@@ -12,6 +12,10 @@ class ChannelRepository {
         return this.itemsMap.get(id);
     }
 
+    getAll(): Channel[] {
+        return Array.from(this.itemsMap.values());
+    }
+
     update(channels: Channel[]): void {
         this.itemsMap = channels.reduce((map, c) => map.set(c.id, c), new Map());
         this.itemsByCidMap = channels.reduce((map, c) => map.set(c.cid, c), new Map());
