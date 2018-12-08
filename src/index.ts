@@ -19,11 +19,11 @@ async function main(): Promise<void> {
     });
     const channelRepository = new ChannelRepository();
     const channelsLoader = new ChannelsLoader(
-        consts.TTV_PLAYLIST_URL,
-        consts.TTV_PLAYLIST_UPDATE_INTERVAL,
+        consts.ACE_PLAYLIST_URL,
+        consts.ACE_PLAYLIST_UPDATE_INTERVAL,
         channelRepository,
     );
-    const streamPool = new ChannelPool(consts.IPROXY_PATH, channelRepository);
+    const channelPool = new ChannelPool(consts.IPROXY_PATH, channelRepository);
 
     server.route({
         method: "GET",
@@ -66,7 +66,7 @@ async function main(): Promise<void> {
         method: "GET",
         path: "/c/{channelId}",
         handler: (request: Request, h: ResponseToolkit) => {
-            return streamPool.resolveRequest(request, h);
+            return channelPool.resolveRequest(request, h, consts.CLIENT_IDLE_TIMEOUT);
         },
     });
 

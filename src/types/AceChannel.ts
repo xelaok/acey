@@ -1,9 +1,9 @@
 import { ChannelCategory } from "./ChannelCategory";
 
-type TtvChannel = {
+type AceChannel = {
     name: string,
     category: ChannelCategory,
     cid: string,
 }
 
-export { TtvChannel }
+export { AceChannel }

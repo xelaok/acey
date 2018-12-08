@@ -1,8 +1,12 @@
 import Stream from "stream";
 import * as Hapi from "hapi";
-import fetch, { Response } from "node-fetch";
-import uuidv4 from "uuid/v4";
+import { Response } from "node-fetch";
+import uuidv4 from "uuid";
+import * as aceApi from "@@libs/ace-api";
 import { ChannelRepository } from "./ChannelRepository";
+import { Timer } from "./Timer";
+import { fireAndForget } from "../utils/fireAndForget";
+import { Channel } from "../types";
 
 type ChannelData = {
     cid: string,
@@ -21,47 +25,23 @@ class ChannelPool {
         this.channelRepository = channelRepository;
     }
 
-    async resolveRequest(request: Hapi.Request, h: Hapi.ResponseToolkit): Promise<Hapi.ResponseObject> {
+    async resolveRequest(
+        request: Hapi.Request,
+        h: Hapi.ResponseToolkit,
+        idleTimeoutSeconds: number,
+    ): Promise<Hapi.ResponseObject> {
         try {
             const { channelId } = request.params;
-            const clientId = uuidv4();
+            const channel = this.channelRepository.get(channelId);
 
-            let channelDataPromise = this.channels.get(channelId);
-
-            if (!channelDataPromise) {
-                channelDataPromise = new Promise(async (resolve, reject) => {
-                    try {
-                        const channel = this.channelRepository.get(channelId);
-                        const cid = channel.cid;
-                        const sid = clientId;
-                        const url = `${this.iproxyPath}/ace/getstream?id=${cid}&.mp4&sid=${sid}`;
-
-                        console.log(`ChannelPool#resolveRequest -> fetch`);
-                        console.log(`   url = ${url}`);
-
-                        const response = await fetch(url);
-
-                        if (response.status !== 200) {
-                            reject(`${response.status}: ${response.statusText}`);
-                            return;
-                        }
-
-                        resolve({
-                            cid,
-                            sid,
-                            response,
-                        });
-                    }
-                    catch (error) {
-                        reject(error);
-                    }
-                });
-
-                this.addChannel(channelId, channelDataPromise);
+            if (!channel) {
+                return h.response().code(404);
             }
 
-            const channelData = await channelDataPromise;
-            const stream = channelData.response.body.pipe(new Stream.PassThrough());
+            const clientId = uuidv4();
+            const channelData = await this.resolveChannelRequest(clientId, channel);
+
+            const stream = new Stream.PassThrough();
             const response = h.response(stream);
 
             for (const [name, value] of channelData.response.headers) {
@@ -70,12 +50,24 @@ class ChannelPool {
 
             this.enterChannel(clientId, channelId);
 
+            const idleTimoutTimer = new Timer(idleTimeoutSeconds * 1000, () => stream.end());
+            idleTimoutTimer.start();
+
+            channelData.response.body.on("data", (chunk) => {
+                stream.write(chunk);
+            });
+
             stream.once("close", () => {
                 console.log(`ChannelPool -> client stream close`);
                 console.log(`   clientId = ${clientId}`);
                 console.log(`   channelName = ${this.tryGetChannelName(channelId)}`);
 
+                idleTimoutTimer.stop();
                 this.leaveChannel(clientId, channelId);
+            });
+
+            response.events.on("peek", () => {
+                idleTimoutTimer.reset();
             });
 
             return response;
@@ -84,6 +76,41 @@ class ChannelPool {
             console.log(e);
             return h.response().code(500);
         }
+    }
+
+    private async resolveChannelRequest(clientId: string, channel: Channel): Promise<ChannelData> {
+        console.log("ChannelPool#resolveChannelRequest");
+        console.log(`   clientId = ${clientId}`);
+        console.log(`   channelName = ${channel.name}`);
+
+        let result = this.channels.get(channel.id);
+
+        if (!result) {
+            result = this.requestChannel(clientId, channel);
+            this.addChannel(channel.id, result);
+        }
+
+        return result;
+    }
+
+    private async requestChannel(clientId: string, channel: Channel): Promise<ChannelData> {
+        console.log(`ChannelPool#requestChannel -> fetch`);
+        console.log(`   clientId = ${clientId}`);
+        console.log(`   channel = ${channel.name}`);
+
+        const cid = channel.cid;
+        const sid = clientId;
+        const response = await aceApi.getStream(this.iproxyPath, cid, sid);
+
+        if (response.status !== 200) {
+            throw new Error(`${response.status}: ${response.statusText}`);
+        }
+
+        return {
+            cid,
+            sid,
+            response,
+        };
     }
 
     private hasClients(channelId: string): boolean {
@@ -140,30 +167,18 @@ class ChannelPool {
     }
 
     private stopChannel(channelId: string): void {
-        this.stopChannelAsync(channelId);
-    }
+        fireAndForget(async () => {
+            console.log("ChannelPool#stopChannel");
+            console.log(`   channelName = ${this.tryGetChannelName(channelId)}`);
 
-    private async stopChannelAsync(channelId: string): Promise<void> {
-        const { cid, sid } = await this.channels.get(channelId);
-
-        console.log("ChannelPool#stopChannel");
-        console.log(`   channelName = ${this.tryGetChannelName(channelId)}`);
-
-        const statsUrl = `${this.iproxyPath}/ace/getstream?id=${cid}&.mp4&sid=${sid}&format=json`;
-        const res = await fetch(statsUrl);
-        const stats: any = await res.json();
-        const cmdUrl: string = this.normalizeAceIProxyUrl(stats.response["command_url"]) + "?method=stop";
-
-        await fetch(cmdUrl);
+            const { cid, sid } = await this.channels.get(channelId);
+            await aceApi.stopStream(this.iproxyPath, cid, sid);
+        });
     }
 
     private tryGetChannelName(channelId: string): string {
         const channel = this.channelRepository.get(channelId);
         return channel ? channel.name : "";
-    }
-
-    private normalizeAceIProxyUrl(url: string): string {
-        return this.iproxyPath + url.slice(url.indexOf("/ace"));
     }
 }
 

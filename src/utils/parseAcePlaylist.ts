@@ -1,9 +1,9 @@
 import { parseTextLines } from "./parseTextLines";
 import { parseChannelCategory } from "./parseChannelCategory";
-import { ChannelCategory, TtvChannel } from "../types";
+import { ChannelCategory, AceChannel } from "../types";
 
-function parseTtvPlaylist(content: string): TtvChannel[] {
-    let result: TtvChannel[] = [];
+function parseAcePlaylist(content: string): AceChannel[] {
+    let result: AceChannel[] = [];
 
     const lines = parseTextLines(content, true, true);
     const lineCount = lines.length;
@@ -69,4 +69,4 @@ function parseTtvPlaylist(content: string): TtvChannel[] {
     return result;
 }
 
-export { parseTtvPlaylist }
+export { parseAcePlaylist }

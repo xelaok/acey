@@ -1,5 +1,5 @@
 import { ChannelRepository } from "./ChannelRepository";
-import { loadTtvChannels } from "../utils/loadTtvChannels";
+import { loadAceChannels } from "../utils/loadAceChannels";
 
 class ChannelsLoader {
     private readonly playlistUrl: string;
@@ -25,11 +25,11 @@ class ChannelsLoader {
 
         this.isRunning = true;
 
-        await loadTtvChannels(this.playlistUrl, this.channelRepository);
+        await loadAceChannels(this.playlistUrl, this.channelRepository);
 
         this.timeout = global.setInterval(
             async () => {
-                await loadTtvChannels(this.playlistUrl, this.channelRepository);
+                await loadAceChannels(this.playlistUrl, this.channelRepository);
             },
             this.intervalSeconds * 1000,
         );
