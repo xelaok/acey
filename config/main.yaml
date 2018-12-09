@@ -1,10 +1,10 @@
 server:
     host: 0.0.0.0
     port: 8100
-    publicPath: http://10.0.0.3:8100
+    publicPath: http://192.168.0.3:8100
 
 iproxy:
-    path: http://37.46.130.116:81
+    path: http://127.0.0.1:6878
 
 stream:
     requestTimeout: 30
