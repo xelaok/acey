@@ -1,75 +1,67 @@
-import { Server, Request, ResponseToolkit } from "hapi";
-import * as consts from "./consts";
+import { Server } from "hapi";
+import { getConfig } from "./config";
+import { logger, setupLogger } from "./libs/logger";
 import { ChannelRepository } from "./services/ChannelRepository";
-import { ChannelsLoader } from "./services/ChannelsLoader";
-import { ChannelPool } from "./services/ChannelPool";
-import { buildPlaylist } from "./utils/playlist/buildPlaylist";
-import { buildSelectedPlaylist } from "./utils/playlist/buildSelectedPlaylist";
+import { PlaylistFetcher } from "./services/PlaylistFetcher";
+import { StreamProvider } from "./services/StreamProvider";
+import * as routes from "./routes";
 
-main();
+process.on("uncaughtException", err => {
+    logger.warn(`Uncaught Exception > ${err.stack}`);
+});
+
+process.on('unhandledRejection', err => {
+    logger.warn(`Unhandled Rejection > ${err.stack}`);
+});
+
+main().catch(err => {
+    logger.error(err.stack);
+});
 
 async function main(): Promise<void> {
-    process.on("uncaughtException", err => {
-        console.log(err);
-    });
+    const config = getConfig();
+
+    setupLogger(config.logger);
 
     const server = new Server({
-        host: consts.BIND_HOST,
-        port: consts.BIND_PORT,
+        host: config.server.host,
+        port: config.server.port,
     });
+
     const channelRepository = new ChannelRepository();
-    const channelsLoader = new ChannelsLoader(
-        consts.ACE_PLAYLIST_URL,
-        consts.ACE_PLAYLIST_UPDATE_INTERVAL,
+
+    const playlistFetcher = new PlaylistFetcher(
+        config.playlistFetcher,
+        config.channelGroupsParseMap,
         channelRepository,
     );
-    const channelPool = new ChannelPool(consts.IPROXY_PATH, channelRepository);
 
-    server.route({
-        method: "GET",
-        path: "/all.m3u",
-        handler: (request: Request, h: ResponseToolkit) => {
-            const streamsPath = `${consts.PUBLIC_PATH}/c`;
+    const streamProvider = new StreamProvider(
+        config.stream,
+        config.iproxy.path,
+    );
 
-            const content = buildPlaylist(
-                streamsPath,
-                channelRepository.getAll(),
-            );
+    routes.handleGetPlaylist(
+        server,
+        config.server.publicPath,
+        config.playlistFormat,
+        config.channelGroups,
+        channelRepository,
+    );
 
-            return h
-                .response(content)
-                .header("content-type", "text/plain; charset=utf-8")
-                ;
-        },
+    routes.handleGetChannelStream(
+        server,
+        channelRepository,
+        streamProvider,
+    );
+
+    server.events.once("start", () => {
+        logger.info("Ready");
     });
 
-    server.route({
-        method: "GET",
-        path: "/selected.m3u",
-        handler: (request: Request, h: ResponseToolkit) => {
-            const streamsPath = `${consts.PUBLIC_PATH}/c`;
+    logger.info("Fetching playlist...");
+    await playlistFetcher.start();
 
-            const content = buildSelectedPlaylist(
-                streamsPath,
-                channelRepository.getAll(),
-                consts.selectedChannelsSet,
-            );
-
-            return h
-                .response(content)
-                .header("content-type", "text/plain; charset=utf-8")
-                ;
-        },
-    });
-
-    server.route({
-        method: "GET",
-        path: "/c/{channelId}",
-        handler: (request: Request, h: ResponseToolkit) => {
-            return channelPool.resolveRequest(request, h, consts.CLIENT_IDLE_TIMEOUT);
-        },
-    });
-
-    await channelsLoader.start();
+    logger.info("Starting server...");
     await server.start();
 }

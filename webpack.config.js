@@ -4,12 +4,12 @@ const nodeExternals = require("webpack-node-externals");
 const getBuildConfig = require("./build-config");
 
 module.exports = function ({ buildMode }) {
-    console.log("build mode: " + buildMode)
+    console.log("build mode: " + buildMode);
 
-    const buildConfig = getBuildConfig(buildMode)
-    const config = getConfig(buildConfig)
+    const buildConfig = getBuildConfig(buildMode);
+    const config = getConfig(buildConfig);
 
-    return config
+    return config;
 }
 
 function getConfig(buildConfig) {
@@ -20,6 +20,9 @@ function getConfig(buildConfig) {
         target: "node",
         externals: nodeExternals(),
         devtool: buildConfig.bundle.sourceMap,
+        node: {
+            __dirname: false,
+        },
         entry: {
             index: "./src/index.ts",
         },
@@ -67,7 +70,7 @@ function getConfig(buildConfig) {
                 { verbose: false }
             ),
         ]),
-    }
+    };
 }
 
 function defineList(list) {

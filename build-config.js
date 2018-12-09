@@ -3,7 +3,7 @@ const _ = require("lodash")
 const options = {
     base: {
         compile: {
-            node: "10",
+            node: "current",
         },
     },
     debug: {

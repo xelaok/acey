@@ -1,8 +1,10 @@
 import { splitLines } from "../../libs/misc/splitLines";
-import { parseChannelCategory } from "./parseChannelCategory";
-import { ChannelCategory, AceChannel } from "../../types";
+import { AceChannel, ChannelGroupsParseMap } from "../../types";
 
-function parseAcePlaylist(content: string): AceChannel[] {
+function parseAcePlaylist(
+    content: string,
+    channelGroupsParseMap: ChannelGroupsParseMap,
+): AceChannel[] {
     let result: AceChannel[] = [];
 
     const lines = splitLines(content, true, true);
@@ -36,17 +38,15 @@ function parseAcePlaylist(content: string): AceChannel[] {
         const categoryStartIndex = title.lastIndexOf("(");
         const categoryEndIndex = title.lastIndexOf(")");
 
-        let name, category;
+        let name, group;
 
         if (categoryStartIndex !== -1 && categoryEndIndex !== -1) {
             name = title.slice(0, categoryStartIndex).trim();
-            category = parseChannelCategory(
-                title.slice(categoryStartIndex + 1, categoryEndIndex).trim()
-            );
+            group = channelGroupsParseMap.get(title.slice(categoryStartIndex + 1, categoryEndIndex).trim()) || null;
         }
         else {
             name = title.trim();
-            category = ChannelCategory.Other;
+            group = null;
         }
 
         if (!name) {
@@ -63,7 +63,7 @@ function parseAcePlaylist(content: string): AceChannel[] {
         }
 
         k += 2;
-        result.push({ name, category, cid });
+        result.push({ name, group, cid });
     }
 
     return result;

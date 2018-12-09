@@ -1,0 +1,24 @@
+server:
+    host: 0.0.0.0
+    port: 8100
+    publicPath: http://10.0.0.3:8100
+
+iproxy:
+    path: http://37.46.130.116:81
+
+stream:
+    requestTimeout: 30
+    clientIdleTimeout: 15
+
+playlistFormat:
+    useExtGrp: true
+    useTvgNameAttr: true
+    useGroupTitleAttr: true
+
+playlistFetcher:
+    acePlaylist:
+        url: http://91.92.66.82/trash/ttv-list/as.all.player.m3u
+        interval: 20
+
+logger:
+    level: debug

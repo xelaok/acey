@@ -1,6 +1,6 @@
 {
     "name": "acey",
-    "version": "0.2.2",
+    "version": "0.3.0",
     "private": true,
     "scripts": {
         "start": "node build/prod",
@@ -12,26 +12,32 @@
         "watch-release": "webpack --progress --color --env.buildMode=release -w"
     },
     "devDependencies": {
-        "@babel/core": "7.1.6",
-        "@babel/plugin-transform-runtime": "7.1.0",
-        "@babel/preset-env": "7.1.6",
-        "@babel/runtime": "7.1.5",
+        "@babel/core": "7.2.0",
+        "@babel/plugin-transform-runtime": "7.2.0",
+        "@babel/preset-env": "7.2.0",
+        "@babel/runtime": "7.2.0",
         "@types/hapi": "17.8.0",
+        "@types/js-yaml": "3.11.2",
         "@types/lodash": "4.14.118",
+        "@types/nanoid": "1.2.0",
         "@types/node-fetch": "2.1.4",
-        "@types/uuid": "3.4.4",
+        "@types/shortid": "0.0.29",
+        "@types/winston": "2.4.4",
         "babel-loader": "8.0.4",
         "clean-webpack-plugin": "1.0.0",
         "ts-loader": "5.3.1",
-        "typescript": "3.2.1",
-        "webpack": "4.26.1",
+        "typescript": "3.2.2",
+        "webpack": "4.27.1",
         "webpack-cli": "3.1.2",
         "webpack-node-externals": "1.7.2"
     },
     "dependencies": {
         "hapi": "17.8.1",
+        "js-yaml": "3.12.0",
         "lodash": "4.17.11",
+        "nanoid": "2.0.0",
         "node-fetch": "2.3.0",
-        "uuid": "3.3.2"
+        "shortid": "2.2.14",
+        "winston": "3.1.0"
     }
 }

@@ -1,8 +1,8 @@
-import { ChannelCategory } from "./ChannelCategory";
+import { ChannelGroup } from "./ChannelGroup";
 
 type AceChannel = {
     name: string,
-    category: ChannelCategory,
+    group: ChannelGroup | null,
     cid: string,
 }
 

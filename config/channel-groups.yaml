@@ -1,0 +1,41 @@
+- name: Movies
+  title: Фильмы
+
+- name: Music
+  title: Музыка
+
+- name: News
+  title: Новости
+
+- name: Sport
+  title: Спорт
+
+- name: Kids
+  title: Детские
+
+- name: Entertaining
+  title: Развлекательные
+
+- name: Educational
+  title: Познавательные
+
+- name: Documentaries
+  title: Документальные
+
+- name: Other
+  title: Разное
+
+- name: Man
+  title: Мужские
+
+- name: Woman
+  title: Женские
+
+- name: Xxx
+  title: XXX
+
+- name: Regional
+  title: Региональные
+
+- name: Religion
+  title: Религиозные
