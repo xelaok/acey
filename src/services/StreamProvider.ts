@@ -50,13 +50,13 @@ class StreamProvider {
             item.clients.add(client);
 
             stream.once("close", () => {
-                logger.debug(`StreamProvider > client stream > close ("${name}", rid: ${rid})`);
+                logger.debug(`StreamProvider > client > stream > close ("${name}", rid: ${rid})`);
                 idleTimoutTimer.stop();
                 this.rejectClient(cid, name, client);
             });
 
             stream.once("finish", () => {
-                logger.debug(`StreamProvider > client stream > finish ("${name}", rid: ${rid})`);
+                logger.debug(`StreamProvider > client > stream > finish ("${name}", rid: ${rid})`);
             });
 
             const idleTimoutTimer = new Timer(
@@ -73,12 +73,13 @@ class StreamProvider {
                 clientResponse.header(name, value);
             }
 
-            clientResponse.events.on("peek", () => {
+            clientResponse.events.on("peek", (chunk) => {
                 idleTimoutTimer.reset();
+                logger.silly(`StreamProvider > client > response > chunk ("${name}", rid: ${rid}, length: ${chunk.length})`);
             });
 
             clientResponse.events.on("finish", () => {
-                logger.debug(`StreamProvider > client response > finish ("${name}", rid: ${rid})`);
+                logger.debug(`StreamProvider > client > response > finish ("${name}", rid: ${rid})`);
             });
 
             return clientResponse;
@@ -90,7 +91,7 @@ class StreamProvider {
     }
 
     private rejectClient(cid: string, name: string, client: StreamClient): void {
-        logger.debug(`StreamProvider > reject client ("${name}", rid: ${client.rid})`);
+        logger.debug(`StreamProvider > client > reject ("${name}", rid: ${client.rid})`);
 
         const item = this.items.get(cid);
 
@@ -109,7 +110,7 @@ class StreamProvider {
     }
 
     private startStream(cid: string, name: string): StreamItem {
-        logger.debug(`StreamProvider > start stream ("${name}")`);
+        logger.debug(`StreamProvider > stream > start ("${name}")`);
 
         const sid = nanoid();
         const requestInit = {
@@ -120,7 +121,7 @@ class StreamProvider {
 
         responsePromise
             .then((response) => {
-                logger.debug(`StreamProvider > start stream > response ok ("${name}", status: ${response.status} - ${response.statusText})`);
+                logger.debug(`StreamProvider > stream > start > got response ("${name}", status: ${response.status} - ${response.statusText})`);
 
                 if (response.status !== 200) {
                     for (const c of clients) {
@@ -130,6 +131,8 @@ class StreamProvider {
                 }
 
                 response.body.on("data", (chunk) => {
+                    logger.silly(`StreamProvider > stream > response > chunk ("${name}", length = ${chunk.length})`);
+
                     for (const c of clients) {
                         try {
                             c.stream.write(chunk);
@@ -141,15 +144,15 @@ class StreamProvider {
                 });
 
                 response.body.on("close", () => {
-                    logger.debug(`StreamProvider > stream response > close ("${name}")`);
+                    logger.debug(`StreamProvider > stream > response > close ("${name}")`);
                 });
 
                 response.body.on("finish", () => {
-                    logger.debug(`StreamProvider > stream response > finish ("${name}")`);
+                    logger.debug(`StreamProvider > stream > response > finish ("${name}")`);
                 });
             })
             .catch(err => {
-                logger.debug(`StreamProvider > start stream > response failed ("${name}")`);
+                logger.debug(`StreamProvider > stream > start > response > failed ("${name}")`);
                 return Promise.reject(err);
             });
 
@@ -162,7 +165,7 @@ class StreamProvider {
     }
 
     private stopStream(item: StreamItem, name: string): void {
-        logger.debug(`StreamProvider > stop stream ("${name}")`);
+        logger.debug(`StreamProvider > stream > stop ("${name}")`);
         fireAndForget(() => aceApi.stopStream(this.iproxyPath, item.cid, item.sid));
     }
 }

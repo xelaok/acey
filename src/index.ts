@@ -59,6 +59,16 @@ async function main(): Promise<void> {
         logger.info("Ready");
     });
 
+    logger.verbose(`# process id:                           ${process.pid}`);
+    logger.verbose(`# nodejs version:                       ${process.version}`);
+    logger.verbose(`# server.host:                          ${config.server.host}`);
+    logger.verbose(`# server.port:                          ${config.server.port}`);
+    logger.verbose(`# server.publicPath:                    ${config.server.publicPath}`);
+    logger.verbose(`# iproxy.path:                          ${config.iproxy.path}`);
+    logger.verbose(`# playlistFetcher.acePlaylist.url:      ${config.playlistFetcher.acePlaylist.url}`);
+    logger.verbose(`# playlistFetcher.acePlaylist.interval: ${config.playlistFetcher.acePlaylist.interval}m`);
+    logger.verbose(`# logger.level:                         ${config.logger.level}`);
+
     logger.info("Fetching playlist...");
     await playlistFetcher.start();
 
