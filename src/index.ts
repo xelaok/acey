@@ -57,6 +57,7 @@ async function main(): Promise<void> {
 
     server.events.once("start", () => {
         logger.info("Ready");
+        logger.info(`Playlist url: ${config.server.publicPath}/all.m3u`);
     });
 
     logger.verbose(`# process id:                           ${process.pid}`);
