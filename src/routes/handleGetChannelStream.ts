@@ -19,7 +19,7 @@ function handleGetChannelStream(
             }
 
             logger.verbose(`Request channel "${channel.name}"`);
-            return streamProvider.request(channel.cid, channel.name, h);
+            return streamProvider.request(channel.cid, channel.name, request, h);
         },
     });
 }

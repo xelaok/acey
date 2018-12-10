@@ -1,6 +1,6 @@
 {
     "name": "acey",
-    "version": "0.3.4",
+    "version": "0.4.0",
     "private": true,
     "scripts": {
         "start": "node build/prod",
@@ -9,7 +9,8 @@
         "build-debug": "webpack --progress --color --env.buildMode=debug",
         "watch-debug": "webpack --progress --color --env.buildMode=debug -w",
         "build-release": "webpack --progress --color --env.buildMode=release",
-        "watch-release": "webpack --progress --color --env.buildMode=release -w"
+        "watch-release": "webpack --progress --color --env.buildMode=release -w",
+        "prune": "npm prune --production"
     },
     "devDependencies": {
         "@babel/core": "7.2.0",
@@ -20,6 +21,7 @@
         "@types/js-yaml": "3.11.2",
         "@types/lodash": "4.14.118",
         "@types/nanoid": "1.2.0",
+        "@types/node-cleanup": "2.1.0",
         "@types/node-fetch": "2.1.4",
         "@types/shortid": "0.0.29",
         "@types/winston": "2.4.4",
@@ -36,6 +38,7 @@
         "js-yaml": "3.12.0",
         "lodash": "4.17.11",
         "nanoid": "2.0.0",
+        "node-cleanup": "2.1.2",
         "node-fetch": "2.3.0",
         "shortid": "2.2.14",
         "winston": "3.1.0"

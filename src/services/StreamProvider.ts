@@ -12,6 +12,7 @@ import { StreamProviderOptions } from "../types";
 type StreamItem = {
     cid: string,
     sid: string,
+    alias: string,
     clients: Set<StreamClient>,
     responsePromise: Promise<Response>,
 };
@@ -24,63 +25,82 @@ type StreamClient = {
 class StreamProvider {
     private readonly options: StreamProviderOptions;
     private readonly iproxyPath: string;
-    private items: Map<string, StreamItem> = new Map();
+    private streams: Map<string, StreamItem> = new Map();
 
     constructor(options: StreamProviderOptions, iproxyPath: string) {
         this.options = options;
         this.iproxyPath = iproxyPath;
     }
 
-    async request(cid: string, name: string, h: Hapi.ResponseToolkit): Promise<Hapi.ResponseObject> {
+    async request(
+        cid: string,
+        alias: string,
+        request: Hapi.Request,
+        h: Hapi.ResponseToolkit
+    ): Promise<Hapi.ResponseObject> {
         try {
             const rid = shortid();
 
-            logger.debug(`StreamProvider > request ("${name}", rid: ${rid})`);
+            logger.debug(`StreamProvider > request ("${alias}", rid: ${rid})`);
 
-            let item = this.items.get(cid);
+            let stream = this.streams.get(cid);
 
-            if (!item) {
-                item = this.startStream(cid, name);
-                this.items.set(cid, item);
+            if (!stream) {
+                stream = this.startStream(cid, alias);
+                this.streams.set(cid, stream);
             }
 
-            const stream = new Stream.PassThrough();
-            const client = { rid, stream };
+            const clientStream = new Stream.PassThrough();
+            const clientResponse = h.response(clientStream);
 
-            item.clients.add(client);
+            const client = {
+                rid,
+                stream: clientStream,
+            };
 
-            stream.once("close", () => {
-                logger.debug(`StreamProvider > client > stream > close ("${name}", rid: ${rid})`);
-                idleTimoutTimer.stop();
-                this.rejectClient(cid, name, client);
-            });
-
-            stream.once("finish", () => {
-                logger.debug(`StreamProvider > client > stream > finish ("${name}", rid: ${rid})`);
-            });
+            stream.clients.add(client);
 
             const idleTimoutTimer = new Timer(
                 this.options.clientIdleTimeout * 1000,
-                () => stream.end(),
+                () => {
+                    logger.debug(`StreamProvider > client > idle timeout ("${alias}", rid: ${rid})`);
+                    clientStream.end();
+                },
             );
+
+            request.events.once("finish", () => {
+                logger.debug(`StreamProvider > request > finish ("${alias}", rid: ${rid})`);
+            });
+
+            request.events.once("disconnect", () => {
+                logger.debug(`StreamProvider > request > disconnect ("${alias}", rid: ${rid})`);
+            });
+
+            clientStream.once("close", () => {
+                logger.debug(`StreamProvider > client > stream > close ("${alias}", rid: ${rid})`);
+                idleTimoutTimer.stop();
+                this.rejectClient(stream, client);
+            });
+
+            clientStream.once("finish", () => {
+                logger.debug(`StreamProvider > client > stream > finish ("${alias}", rid: ${rid})`);
+            });
+
+            clientResponse.events.on("peek", (chunk) => {
+                idleTimoutTimer.reset();
+            });
+
+            clientResponse.events.once("finish", () => {
+                logger.debug(`StreamProvider > client > response > finish ("${alias}", rid: ${rid})`);
+            });
 
             idleTimoutTimer.start();
 
-            const response = await item.responsePromise;
-            const clientResponse = h.response(stream);
+            const response = await stream.responsePromise;
 
             for (const [name, value] of response.headers) {
                 clientResponse.header(name, value);
             }
-
-            clientResponse.events.on("peek", (chunk) => {
-                idleTimoutTimer.reset();
-                logger.silly(`StreamProvider > client > response > chunk ("${name}", rid: ${rid}, length: ${chunk.length})`);
-            });
-
-            clientResponse.events.on("finish", () => {
-                logger.debug(`StreamProvider > client > response > finish ("${name}", rid: ${rid})`);
-            });
 
             return clientResponse;
         }
@@ -90,27 +110,59 @@ class StreamProvider {
         }
     }
 
-    private rejectClient(cid: string, name: string, client: StreamClient): void {
-        logger.debug(`StreamProvider > client > reject ("${name}", rid: ${client.rid})`);
+    release(): void {
+        const streams = Array.from(this.streams.values());
+        this.streams.clear();
 
-        const item = this.items.get(cid);
-
-        if (!item) {
-            return;
+        for (const s of streams) {
+            this.stopStream(s);
         }
-
-        item.clients.delete(client);
-
-        if (item.clients.size !== 0) {
-            return;
-        }
-
-        this.items.delete(cid);
-        this.stopStream(item, name);
     }
 
-    private startStream(cid: string, name: string): StreamItem {
-        logger.debug(`StreamProvider > stream > start ("${name}")`);
+    private rejectClient(stream: StreamItem, client: StreamClient): void {
+        logger.debug(`StreamProvider > client > reject ("${stream.alias}", rid: ${client.rid})`);
+
+        stream.clients.delete(client);
+
+        if (!this.canReleaseStream(stream)) {
+            return;
+        }
+
+        if (this.options.stopDelay > 0) {
+            this.scheduleReleaseStream(stream);
+        }
+        else {
+            this.releaseStream(stream);
+        }
+    }
+
+    private scheduleReleaseStream(stream: StreamItem): void {
+        logger.debug(`StreamProvider > stream > stop > schedule ("${stream.alias}")`);
+
+        global.setTimeout(
+            () => {
+                if (!this.canReleaseStream(stream)) {
+                    logger.debug(`StreamProvider > stream > stop > schedule > canceled ("${stream.alias}")`);
+                    return;
+                }
+
+                this.releaseStream(stream);
+            },
+            this.options.stopDelay * 1000,
+        );
+    }
+
+    private releaseStream(stream: StreamItem): void {
+        this.streams.delete(stream.cid);
+        this.stopStream(stream);
+    }
+
+    private canReleaseStream(stream: StreamItem): boolean {
+        return stream.clients.size === 0;
+    }
+
+    private startStream(cid: string, alias: string): StreamItem {
+        logger.debug(`StreamProvider > stream > start ("${alias}")`);
 
         const sid = nanoid();
         const requestInit = {
@@ -121,7 +173,7 @@ class StreamProvider {
 
         responsePromise
             .then((response) => {
-                logger.debug(`StreamProvider > stream > start > got response ("${name}", status: ${response.status} - ${response.statusText})`);
+                logger.debug(`StreamProvider > stream > start > got response ("${alias}", status: ${response.status} - ${response.statusText})`);
 
                 if (response.status !== 200) {
                     for (const c of clients) {
@@ -131,8 +183,6 @@ class StreamProvider {
                 }
 
                 response.body.on("data", (chunk) => {
-                    logger.silly(`StreamProvider > stream > response > chunk ("${name}", length = ${chunk.length})`);
-
                     for (const c of clients) {
                         try {
                             c.stream.write(chunk);
@@ -144,29 +194,30 @@ class StreamProvider {
                 });
 
                 response.body.on("close", () => {
-                    logger.debug(`StreamProvider > stream > response > close ("${name}")`);
+                    logger.debug(`StreamProvider > stream > response > close ("${alias}")`);
                 });
 
                 response.body.on("finish", () => {
-                    logger.debug(`StreamProvider > stream > response > finish ("${name}")`);
+                    logger.debug(`StreamProvider > stream > response > finish ("${alias}")`);
                 });
             })
             .catch(err => {
-                logger.debug(`StreamProvider > stream > start > response > failed ("${name}")`);
+                logger.debug(`StreamProvider > stream > start > response > failed ("${alias}")`);
                 return Promise.reject(err);
             });
 
         return {
             cid,
             sid,
+            alias,
             clients,
             responsePromise,
         };
     }
 
-    private stopStream(item: StreamItem, name: string): void {
-        logger.debug(`StreamProvider > stream > stop ("${name}")`);
-        fireAndForget(() => aceApi.stopStream(this.iproxyPath, item.cid, item.sid));
+    private stopStream(stream: StreamItem): void {
+        logger.debug(`StreamProvider > stream > stop ("${stream.alias}")`);
+        fireAndForget(() => aceApi.stopStream(this.iproxyPath, stream.cid, stream.sid));
     }
 }
 

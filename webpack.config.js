@@ -1,7 +1,9 @@
 const path = require("path");
+const webpack = require("webpack");
 const CleanPlugin = require("clean-webpack-plugin");
 const nodeExternals = require("webpack-node-externals");
 const getBuildConfig = require("./build-config");
+const pkg = require("./package.json");
 
 module.exports = function ({ buildMode }) {
     console.log("build mode: " + buildMode);
@@ -69,6 +71,11 @@ function getConfig(buildConfig) {
                 [buildPath],
                 { verbose: false }
             ),
+            new webpack.DefinePlugin({
+                "process.env": {
+                    appPackage: JSON.stringify(pkg),
+                },
+            }),
         ]),
     };
 }
