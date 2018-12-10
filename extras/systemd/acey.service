@@ -1,0 +1,13 @@
+[Unit]
+Description=AceY
+
+[Service]
+WorkingDirectory=/opt/acey
+ExecStart=/usr/bin/node /opt/acey/
+Restart=always
+RestartSec=5
+SyslogIdentifier=acey
+User=root
+
+[Install]
+WantedBy=multi-user.target
