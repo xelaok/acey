@@ -11,6 +11,7 @@ class PlaylistFetcher {
     private readonly channelRepository: ChannelRepository;
     private timeout: NodeJS.Timeout;
     private isRunning: boolean = false;
+    private acePlaylistLastModified: string | null = null;
 
     constructor(
         options: PlaylistFetcherOptions,
@@ -49,16 +50,28 @@ class PlaylistFetcher {
     private async fetchAcePlaylist(): Promise<void> {
         logger.debug("PlaylistFetcher > fetch ace playlist");
         try {
-            const acePlaylist = await fetchAcePlaylist(this.options.acePlaylist.url);
-            const aceChannels = parseAcePlaylist(acePlaylist, this.channelGroupsParseMap);
-            const channels = aceChannels.map(ac => getChannelFromAceChannel(ac));
+            const result = await fetchAcePlaylist(
+                this.options.acePlaylist.url,
+                this.acePlaylistLastModified,
+            );
 
-            if (channels.length === 0) {
+            if (!result.modified) {
+                logger.debug("PlaylistFetcher > fetch ace playlist > success (not modified)");
+                return;
+            }
+
+            this.acePlaylistLastModified = result.lastModified;
+
+            const aceChannels = parseAcePlaylist(result.content, this.channelGroupsParseMap);
+
+            if (aceChannels.length === 0) {
                 logger.warn(`No channels loaded`);
                 return;
             }
 
+            const channels = aceChannels.map(ac => getChannelFromAceChannel(ac));
             this.channelRepository.update(channels);
+
             logger.debug(`PlaylistFetcher > fetch ace playlist > success (${channels.length} channels)`);
         }
         catch (error) {
