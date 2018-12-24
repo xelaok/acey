@@ -1,6 +1,6 @@
 import fetch from "node-fetch";
 import qs from "qs";
-import nanoid from "nanoid";
+import nanoid from "nanoid/generate";
 import { logger, stopWatch, forget } from "../base";
 import { TtvApiConfig } from "../config";
 import { AppData } from "../app-data";
@@ -34,7 +34,7 @@ class TtvApi {
         let guid = await this.appData.readTtvGuid();
 
         if (!guid) {
-            guid = nanoid();
+            guid = nanoid("0123456789abcdef", 32);
             forget(this.appData.writeTtvGuid(guid));
         }
 
@@ -45,6 +45,8 @@ class TtvApi {
             typeresult: "json",
             guid: guid,
         })}`;
+
+        console.log(url);
 
         const result = await fetch(url).then(res => res.json());
 
