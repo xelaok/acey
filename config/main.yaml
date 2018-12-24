@@ -9,8 +9,8 @@ aceEngine:
     path: http://127.0.0.1:6878
 
 ttvApi:
-    username: # set username
-    password: # set password
+    username: username # change username
+    password: password # change password
     endpoint: http://api.torrent-tv.ru
 
 stream:
