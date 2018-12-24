@@ -58,7 +58,7 @@ const Entities = {
 };
 
 class AppData {
-    private dataPath: string;
+    dataPath: string;
 
     constructor(appConfig: AppConfig) {
         this.dataPath = getAppDataPath(appConfig.dataDirectory);

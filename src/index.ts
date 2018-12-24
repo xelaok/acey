@@ -49,7 +49,7 @@ async function main(): Promise<void> {
         streams,
     );
 
-    logConfig(config);
+    logConfig(config, appData);
 
     await appData.init();
     await ttvApi.auth();
@@ -63,10 +63,11 @@ async function main(): Promise<void> {
     logger.info("Ready");
 }
 
-function logConfig(config: Config) {
+function logConfig(config: Config, appData: AppData) {
     logger.verbose(`version            ${(process.env.appPackage as any).version}`);
     logger.verbose(`process id         ${process.pid}`);
     logger.verbose(`nodejs version     ${process.version}`);
+    logger.verbose(`app data           ${appData.dataPath}`);
     logger.verbose(`server.binding     ${config.server.binding}`);
     logger.verbose(`server.publicPath  ${config.server.publicPath}`);
     logger.verbose(`aceEngine.path     ${config.aceEngine.path}`);
