@@ -6,7 +6,7 @@ const getBuildConfig = require("./build-config");
 const pkg = require("./package.json");
 
 module.exports = function ({ buildMode }) {
-    console.log("build mode: " + buildMode);
+    console.log(`build mode: ${buildMode}`);
 
     const buildConfig = getBuildConfig(buildMode);
     const config = getConfig(buildConfig);
@@ -15,7 +15,7 @@ module.exports = function ({ buildMode }) {
 }
 
 function getConfig(buildConfig) {
-    const buildPath = `./build/${ buildConfig.buildDir }`;
+    const buildPath = `./build/${buildConfig.buildDir}`;
 
     return {
         mode: "none",
@@ -72,9 +72,7 @@ function getConfig(buildConfig) {
                 { verbose: false }
             ),
             new webpack.DefinePlugin({
-                "process.env": {
-                    appPackage: JSON.stringify(pkg),
-                },
+                "process.env.appPackage": JSON.stringify(pkg),
             }),
         ]),
     };

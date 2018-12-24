@@ -1,4 +1,4 @@
-const _ = require("lodash")
+const _ = require("lodash");
 
 const options = {
     base: {
@@ -24,7 +24,7 @@ const options = {
             sourceMap: false,
         },
     },
-}
+};
 
 module.exports = function get(name) {
     return _.merge(options["base"], options[name]);

@@ -1,0 +1,4 @@
+provider: ace-url
+label: "ACE"
+url: http://91.92.66.82/trash/ttv-list/as.all.player.m3u
+updateInterval: 20s

@@ -1,25 +1,26 @@
-server:
-    host: 0.0.0.0
-    port: 8100
-    publicPath: http://192.168.0.3:8100
+app:
+    dataDirectory: acey
 
-iproxy:
+server:
+    binding: 0.0.0.0:8100
+    publicPath: http://10.0.0.3:8100 # replace with the valid server path
+
+aceEngine:
     path: http://127.0.0.1:6878
 
+ttvApi:
+    username: # set username
+    password: # set password
+    endpoint: http://api.torrent-tv.ru
+
 stream:
-    requestTimeout: 30
-    clientIdleTimeout: 15
-    stopDelay: 5
-
-playlistFormat:
-    useExtGrp: true
-    useTvgNameAttr: true
-    useGroupTitleAttr: true
-
-playlistFetcher:
-    acePlaylist:
-        url: http://asplaylist.net/t/...
-        interval: 120
+    requestTimeout: 10s
+    stopDelay: 3s
+    sharedBufferLength: 5s
+    chunkedTransferEncoding: yes
+    clientIdleTimeout: 1m
+    clientMaxBufferLength: 1m
+    clientResetBufferLength: 15s
 
 logger:
     level: debug

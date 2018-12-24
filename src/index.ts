@@ -1,89 +1,139 @@
-import { Server } from "hapi";
+import _ from "lodash";
+import { FetchError } from "node-fetch";
 import nodeCleanup from "node-cleanup";
-import { getConfig } from "./config";
-import { logger, setupLogger } from "./libs/logger";
-import { ChannelRepository } from "./services/ChannelRepository";
-import { PlaylistFetcher } from "./services/PlaylistFetcher";
-import { StreamProvider } from "./services/StreamProvider";
-import * as routes from "./routes";
+import { logger, setupLogger, forget } from "./base";
+import { readConfig, Config } from "./config";
+import { AppData } from "./app-data";
+import { TtvApi } from "./ttv-api";
+import { AceStreamRepository, TtvStreamRepository } from "./repositories";
+import { Sources } from "./sources";
+import { Streams } from "./streams";
+import { Server } from "./server";
 
 main().catch(err => {
     logger.error(err.stack);
 });
 
 async function main(): Promise<void> {
-    const config = getConfig();
+    const config = await readConfig();
 
     setupLogger(config.logger);
 
-    const server = new Server({
-        host: config.server.host,
-        port: config.server.port,
-    });
+    const appData = new AppData(config.app);
+    const ttvApi = new TtvApi(config.ttvApi, appData);
+    const aceStreamRepository = new AceStreamRepository();
+    const ttvStreamRepository = new TtvStreamRepository();
 
-    const channelRepository = new ChannelRepository();
-
-    const playlistFetcher = new PlaylistFetcher(
-        config.playlistFetcher,
-        config.channelGroupsParseMap,
-        channelRepository,
+    const sources = new Sources(
+        config.sources,
+        config.groupsMap,
+        appData,
+        ttvApi,
+        aceStreamRepository,
+        ttvStreamRepository,
     );
 
-    const streamProvider = new StreamProvider(
+    const streams = new Streams(
         config.stream,
-        config.iproxy.path,
+        config.aceEngine,
     );
 
-    routes.handleGetPlaylist(
-        server,
-        config.server.publicPath,
-        config.playlistFormat,
-        config.channelGroups,
-        channelRepository,
+    const server = new Server(
+        config.server,
+        config.groups,
+        config.playlists,
+        ttvApi,
+        aceStreamRepository,
+        ttvStreamRepository,
+        sources,
+        streams,
     );
 
-    routes.handleGetChannelStream(
-        server,
-        channelRepository,
-        streamProvider,
-    );
+    logConfig(config);
 
-    server.events.once("start", () => {
-        logger.info(`Playlist url: ${config.server.publicPath}/all.m3u`);
-        logger.info("Ready");
-    });
-
-    logger.verbose(`version               ${(process.env.appPackage as any).version}`);
-    logger.verbose(`process id            ${process.pid}`);
-    logger.verbose(`nodejs version        ${process.version}`);
-    logger.verbose(`server.host           ${config.server.host}`);
-    logger.verbose(`server.port           ${config.server.port}`);
-    logger.verbose(`server.publicPath     ${config.server.publicPath}`);
-    logger.verbose(`iproxy.path           ${config.iproxy.path}`);
-    logger.verbose(`acePlaylist.url       ${config.playlistFetcher.acePlaylist.url}`);
-    logger.verbose(`acePlaylist.interval  ${config.playlistFetcher.acePlaylist.interval}m`);
-    logger.verbose(`logger.level          ${config.logger.level}`);
-
-    logger.info("Fetching playlist...");
-    await playlistFetcher.start();
-
-    logger.info("Starting server...");
+    await appData.init();
+    await ttvApi.auth();
+    await sources.start();
     await server.start();
 
+    handleExceptions();
+    handleTermination(sources, streams);
+
+    logPlaylists(config);
+    logger.info("Ready");
+}
+
+function logConfig(config: Config) {
+    logger.verbose(`version            ${(process.env.appPackage as any).version}`);
+    logger.verbose(`process id         ${process.pid}`);
+    logger.verbose(`nodejs version     ${process.version}`);
+    logger.verbose(`server.binding     ${config.server.binding}`);
+    logger.verbose(`server.publicPath  ${config.server.publicPath}`);
+    logger.verbose(`aceEngine.path     ${config.aceEngine.path}`);
+    logger.verbose(`logger.level       ${config.logger.level}`);
+}
+
+function logPlaylists(config: Config): void {
+    const names = _.sortBy(Object.getOwnPropertyNames(config.playlists), name => name);
+
+    if (names.length === 0) {
+        return;
+    }
+
+    logger.info("Playlists:");
+
+    for (const name of names) {
+        logger.info(`- ${config.server.publicPath}/${name}.m3u`);
+    }
+}
+
+function handleExceptions(): void {
     process.on("uncaughtException", err => {
-        logger.warn(`Uncaught Exception > ${err.stack}`);
+        logger.warn(`Uncaught Exception > ${formatErrorMessage(err)}`);
     });
 
-    process.on('unhandledRejection', err => {
-        logger.warn(`Unhandled Rejection > ${err.stack}`);
+    process.on("unhandledRejection", err => {
+        logger.warn(`Unhandled Rejection > ${formatErrorMessage(err)}`);
     });
+}
 
-    nodeCleanup(() => {
+function handleTermination(sources: Sources, streams: Streams): void {
+    nodeCleanup((exitCode, signal) => {
         console.log("");
-        logger.info("Cleaning up...");
-        playlistFetcher.stop();
-        streamProvider.release();
-        logger.info("Done.");
-        return true;
+
+        if (!signal) {
+            return true;
+        }
+
+        nodeCleanup.uninstall();
+
+        forget(async () => {
+            try {
+                logger.info("Cleaning up...");
+
+                sources.stop();
+                await streams.dispose();
+
+                logger.info("Done.");
+            }
+            catch(err) {
+                logger.warn(err);
+                logger.info("Done with errors.");
+            }
+            finally {
+                process.kill(process.pid, signal);
+            }
+        });
+
+        return false;
     });
+}
+
+function formatErrorMessage(err: any): string {
+    switch (true) {
+        case err instanceof FetchError:
+            return err.message;
+        default:
+            return err.stack;
+    }
 }
