@@ -35,7 +35,6 @@ class TtvApi {
 
         if (!guid) {
             guid = nanoid("0123456789abcdef", 32);
-            forget(this.appData.writeTtvGuid(guid));
         }
 
         const url = `${this.apiConfig.endpoint}/v3/auth.php?${qs.stringify({
@@ -53,6 +52,8 @@ class TtvApi {
         }
 
         this.session = result.session;
+
+        forget(this.appData.writeTtvGuid(guid));
         forget(this.appData.writeTtvAuth(this.apiConfig.username, { session: result.session }));
 
         logger.debug("TtvApi > auth > success");
