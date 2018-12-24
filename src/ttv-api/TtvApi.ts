@@ -46,8 +46,6 @@ class TtvApi {
             guid: guid,
         })}`;
 
-        console.log(url);
-
         const result = await fetch(url).then(res => res.json());
 
         if (!result.success) {
