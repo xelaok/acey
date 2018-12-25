@@ -75,6 +75,11 @@ async function getTtvStream(
     logger.verbose(`Request ttv channel "${stream.name}"`);
 
     const source = await ttvApi.getAceStreamSource(id);
+
+    if (!request.active()) {
+        return h.close;
+    }
+
     return streams.handleRequest(request, h, source, stream.name);
 }
 

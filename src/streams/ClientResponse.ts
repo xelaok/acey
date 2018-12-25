@@ -55,6 +55,13 @@ class ClientResponse {
     }
 
     handle(): void {
+        if (!this.request.active()) {
+            this.close();
+            this.handleClosed();
+            this.result$ = Promise.resolve(this.h.close);
+            return;
+        }
+
         logger.debug(`${this.streamAlias} > client ${this.alias} > init`);
 
         this.request.raw.res.on("error", (err) => {
@@ -86,6 +93,10 @@ class ClientResponse {
         });
 
         this.result$ = this.streamResponse$.then(streamResponse => {
+            if (!this.request.active()) {
+                return this.h.close;
+            }
+
             if (!streamResponse) {
                 return this.h.response().code(502);
             }

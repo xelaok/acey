@@ -87,10 +87,8 @@ class Stream {
         }
 
         this.addClient(client);
-
-        client.handle();
         client.onClosed = () => this.removeClient(client);
-
+        client.handle();
         return client.response$;
     }
 
