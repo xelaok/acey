@@ -1,4 +1,5 @@
 export * from "./base64";
+export * from "./consts";
 export * from "./env";
 export * from "./fetchContent";
 export * from "./forget";

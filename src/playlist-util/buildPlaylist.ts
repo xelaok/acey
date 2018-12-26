@@ -1,4 +1,5 @@
 import { sortBy } from "lodash";
+import { CRLF } from "../base";
 import { StreamGroup, StreamType, ClientStreamInfo } from "../types";
 import { PlaylistFormatConfig, PlaylistFilterConfig } from "../config";
 
@@ -14,7 +15,7 @@ function buildPlaylist(
     resultStreamInfos = sortStreams(resultStreamInfos, groups);
     resultStreamInfos = filterStreams(resultStreamInfos, filter, filterNegative);
 
-    let result = "#EXTM3U\n";
+    let result = "#EXTM3U" + CRLF;
 
     for (const si of resultStreamInfos) {
         const groupTitle = si.stream.group ? si.stream.group.title : "";
@@ -43,13 +44,13 @@ function buildPlaylist(
             result += ` | ${si.sourceLabel}`;
         }
 
-        result += `\n`;
+        result += CRLF;
 
         if (playlistFormat.useExtGrp && groupTitle) {
-            result += `#EXTGRP:${groupTitle}\n`;
+            result += `#EXTGRP:${groupTitle}${CRLF}`;
         }
 
-        result += `${streamPath}/${getStreamTypePath(si)}/${si.stream.id}.mp4\n`;
+        result += `${streamPath}/${getStreamTypePath(si)}/${si.stream.id}.mp4${CRLF}`;
     }
 
     return result;
