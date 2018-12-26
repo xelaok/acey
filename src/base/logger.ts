@@ -6,6 +6,10 @@ type LoggerOptions = {
 
 const logger = winston.createLogger();
 
+winston.addColors({
+    debug: "gray",
+});
+
 function setupLogger(options: LoggerOptions): void {
     logger.configure({
         level: options.level,
