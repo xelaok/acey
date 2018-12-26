@@ -1,6 +1,7 @@
 function splitLines(text: string, trim: boolean = false, skipEmpty: boolean = false): string[] {
     let lines = text
         .replace('\r\n', '\n')
+        .replace('\r', '\n')
         .split('\n')
     ;
 
