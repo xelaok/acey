@@ -5,19 +5,22 @@ type ScheduledFileReaderOptions = {
     path: string;
     timeout: number;
     highWaterMark: number;
+    onSchedule: () => void;
 };
 
 class ScheduledFileReader {
     private readonly path: string;
     private readonly timeout: number;
     private readonly highWaterMark: number;
+    private readonly onSchedule: () => void;
     private canceled: boolean = false;
     private readStartTime: number | undefined;
 
-    constructor({ path, timeout, highWaterMark }: ScheduledFileReaderOptions) {
+    constructor({ path, timeout, highWaterMark, onSchedule }: ScheduledFileReaderOptions) {
         this.path = path;
         this.timeout = timeout;
         this.highWaterMark = highWaterMark;
+        this.onSchedule = onSchedule;
     }
 
     async read(): Promise<Readable | null> {
@@ -37,6 +40,8 @@ class ScheduledFileReader {
     }
 
     private scheduleRead(resolve: (stream: Readable | null) => void): void {
+        this.onSchedule();
+
         global.setTimeout(async () => {
             if (this.canceled) {
                 resolve(null);

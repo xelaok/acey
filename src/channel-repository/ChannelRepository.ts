@@ -12,8 +12,6 @@ class ChannelRepository {
     }
 
     getChannel(source: ChannelSource, id: string): Channel | null {
-        console.log(source, id);
-
         switch (source) {
             case ChannelSource.Ace:
                 return this.aceRepository.get(id);

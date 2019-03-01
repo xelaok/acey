@@ -68,25 +68,20 @@ class HlsStream {
 
         switch (true) {
             case filename === HLS_INDEX_PLAYLIST_NAME:
-                result = this.readIndexFile(
+                return this.readIndexFile(
                     request,
                     h,
                     filePath,
                     mimeType,
                 );
-
-                this.idleTimer.start();
-                break;
             default:
-                result = this.readFile(
+                return this.readFile(
                     request,
                     h,
                     filePath,
                     mimeType,
                 );
         }
-
-        return result;
     }
 
     async close(): Promise<void> {
@@ -129,6 +124,7 @@ class HlsStream {
             }
         };
 
+        this.idleTimer.start();
         forget(ffmpegWorker.run(ffmpegArgs, stream));
 
         return {
@@ -175,6 +171,7 @@ class HlsStream {
                 path,
                 timeout: this.profile.requestTimeout,
                 highWaterMark: READ_INDEX_FILE_HIGHWATERMARK,
+                onSchedule: () => this.idleTimer.reset(),
             });
 
             const stream = await reader.read();
