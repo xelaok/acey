@@ -21,7 +21,7 @@ type RawChannelGroupConfig = ChannelGroup;
 
 type RawServerConfig = {
     binding: string;
-    publicPath: string;
+    accessToken: string | undefined;
     logRequests: string;
 };
 
@@ -110,6 +110,7 @@ type AppConfig = {
 
 type ServerConfig = {
     binding: string;
+    accessToken: string;
     logRequests: boolean;
 };
 

@@ -3,6 +3,8 @@ app:
 
 server:
     binding: 0.0.0.0:8100
+    accessToken: ~
+#    accessToken: abc
     logRequests: Y
 
 aceApi:

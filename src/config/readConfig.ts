@@ -232,6 +232,7 @@ async function readDir(path: string): Promise<string[]> {
 function parseServerConfig(raw: RawServerConfig): ServerConfig {
     return {
         ...raw,
+        accessToken: raw.accessToken || "",
         logRequests: parseBoolean(raw.logRequests),
     };
 }

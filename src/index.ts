@@ -1,6 +1,7 @@
 import { sortBy } from "lodash";
 import { FetchError } from "node-fetch";
 import nodeCleanup from "node-cleanup";
+import urlJoin from "url-join";
 import { logger, setupLogger, forget } from "./base";
 import { readConfig, Config } from "./config";
 import { AppData } from "./app-data";
@@ -113,7 +114,7 @@ function logPlaylists(config: Config): void {
     logger.info("Playlists:");
 
     for (const name of names) {
-        logger.info(`- /${name}.m3u`);
+        logger.info(`- ${urlJoin("/", config.server.accessToken, name + ".m3u")}`);
     }
 }
 

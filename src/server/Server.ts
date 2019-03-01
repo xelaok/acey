@@ -72,12 +72,14 @@ class Server {
 
         routes.hlsStream(
             this.server,
+            serverConfig,
             channelRepository,
             hls,
         );
 
         routes.progressiveStream(
             this.server,
+            serverConfig,
             channelRepository,
             progressiveDownload,
         );

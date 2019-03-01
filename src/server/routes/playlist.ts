@@ -1,9 +1,11 @@
 import { Server, Request, ResponseToolkit, ResponseObject } from "hapi";
+import urlJoin from "url-join";
 import { Dict, getBaseRequestPath } from "../../base";
 import { ServerConfig, PlaylistConfig } from "../../config";
 import { ChannelGroup } from "../../types";
 import { ChannelSources } from "../../channel-sources";
 import { buildPlaylist } from "../../playlist-util";
+import { formatSecureRoutePath } from "../utils/formatSecureRoutePath";
 
 function playlist(
     server: Server,
@@ -14,14 +16,17 @@ function playlist(
 ): void {
     server.route({
         method: "GET",
-        path: "/{name}.m3u",
+        path: formatSecureRoutePath(
+            "/{name}.m3u",
+            serverConfig,
+        ),
         handler: (request: Request, h: ResponseToolkit) => {
             return handle(
                 request,
                 h,
                 false,
-                serverConfig,
                 groups,
+                serverConfig,
                 playlistConfigs,
                 channelSources,
             );
@@ -30,14 +35,17 @@ function playlist(
 
     server.route({
         method: "GET",
-        path: "/not/{name}.m3u",
+        path: formatSecureRoutePath(
+            "/not/{name}.m3u",
+            serverConfig,
+        ),
         handler: (request: Request, h: ResponseToolkit) => {
             return handle(
                 request,
                 h,
                 true,
-                serverConfig,
                 groups,
+                serverConfig,
                 playlistConfigs,
                 channelSources,
             );
@@ -49,8 +57,8 @@ function handle(
     request: Request,
     h: ResponseToolkit,
     filterNegative: boolean,
-    serverConfig: ServerConfig,
     groups: ChannelGroup[],
+    serverConfig: ServerConfig,
     playlistConfigs: Dict<PlaylistConfig>,
     channelSources: ChannelSources,
 ): ResponseObject {
@@ -61,7 +69,7 @@ function handle(
         return h.response().code(404);
     }
 
-    const basePath = getBaseRequestPath(request);
+    const basePath = urlJoin(getBaseRequestPath(request), serverConfig.accessToken);
     const channels = channelSources.getChannels(playlistConfig.channelSources);
 
     const content = buildPlaylist(

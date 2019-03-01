@@ -1,16 +1,22 @@
 import { Request, ResponseToolkit, Server } from "hapi";
+import { ServerConfig } from "../../config";
 import { ChannelRepository } from "../../channel-repository";
 import { Hls } from "../../hls";
+import { formatSecureRoutePath } from "../utils/formatSecureRoutePath";
 import { parseChannel } from "../utils/parseChannel";
 
 function hlsStream(
     server: Server,
+    serverConfig: ServerConfig,
     channelRepository: ChannelRepository,
     hls: Hls,
 ): void {
     server.route({
         method: "GET",
-        path: "/s/{channelSource}/{channelId}/hls/{profile}/{filename}",
+        path: formatSecureRoutePath(
+            "/s/{channelSource}/{channelId}/hls/{profile}/{filename}",
+            serverConfig,
+        ),
         handler: async (request: Request, h: ResponseToolkit) => {
             const channel = parseChannel(request, channelRepository);
 
