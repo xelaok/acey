@@ -70,8 +70,8 @@ function handle(
         groups,
         playlistConfig.format,
         playlistConfig.filter,
-        playlistConfig.proto,
-        playlistConfig.protoProfile,
+        playlistConfig.protocol,
+        playlistConfig.protocolProfile,
         filterNegative,
     );
 

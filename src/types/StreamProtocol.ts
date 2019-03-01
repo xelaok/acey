@@ -1,6 +1,6 @@
-enum StreamProto {
+enum StreamProtocol {
     Progressive = "Progressive",
     Hls = "Hls",
 }
 
-export { StreamProto }
+export { StreamProtocol }

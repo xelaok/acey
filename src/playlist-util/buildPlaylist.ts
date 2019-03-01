@@ -1,7 +1,7 @@
 import { sortBy } from "lodash";
 import urlJoin from "url-join";
 import { CRLF } from "../base";
-import { ChannelGroup, ChannelSource, StreamProto } from "../types";
+import { ChannelGroup, ChannelSource, StreamProtocol } from "../types";
 import { PlaylistFilterConfig, PlaylistFormatConfig } from "../config";
 import { ChannelSourceInfo } from "../channel-sources";
 import { HLS_INDEX_PLAYLIST_NAME } from "../hls";
@@ -12,7 +12,7 @@ function buildPlaylist(
     groups: ChannelGroup[],
     playlistFormat: PlaylistFormatConfig,
     filter: PlaylistFilterConfig | null,
-    streamProto: StreamProto,
+    streamProtocol: StreamProtocol,
     streamProtoProfile: string,
     filterNegative: boolean,
 ): string {
@@ -55,15 +55,15 @@ function buildPlaylist(
             result += `#EXTGRP:${groupTitle}${CRLF}`;
         }
 
-        switch (streamProto) {
-            case StreamProto.Progressive:
+        switch (streamProtocol) {
+            case StreamProtocol.Progressive:
                 result += urlJoin(basePath, `s/${getStreamTypePath(si)}/${si.channel.id}.ts`);
                 break;
-            case StreamProto.Hls:
+            case StreamProtocol.Hls:
                 result += urlJoin(basePath, `s/${getStreamTypePath(si)}/${si.channel.id}/hls/${streamProtoProfile}/${HLS_INDEX_PLAYLIST_NAME}`);
                 break;
             default:
-                throw new Error(`Unknown stream proto: ${streamProto}`);
+                throw new Error(`Unknown stream protocol: ${streamProtocol}`);
         }
 
         result += CRLF + CRLF;

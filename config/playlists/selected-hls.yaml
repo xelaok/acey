@@ -1,4 +1,4 @@
 filter: selected
 format: default
-proto: hls/v3
+protocol: hls/v3
 channelSources: ttv, as

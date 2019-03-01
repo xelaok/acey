@@ -1,5 +1,5 @@
 import { Dict } from "../base";
-import { ChannelGroup, ChannelSource, StreamProto } from "../types";
+import { ChannelGroup, ChannelSource, StreamProtocol } from "../types";
 
 type RawMainConfig = {
     app: RawAppConfig;
@@ -73,7 +73,7 @@ type RawTtvApiChannelSourceConfig = RawChannelSourceConfig & {
 type RawPlaylistConfig = {
     filter: string | null;
     format: string;
-    proto: string;
+    protocol: string;
     channelSources: string | null;
 };
 
@@ -175,8 +175,8 @@ type TtvApiChannelSourceConfig = ChannelSourceConfig & {
 type PlaylistConfig = {
     filter: PlaylistFilterConfig;
     format: PlaylistFormatConfig;
-    proto: StreamProto;
-    protoProfile: string;
+    protocol: StreamProtocol;
+    protocolProfile: string;
     channelSources: string[];
 };
 

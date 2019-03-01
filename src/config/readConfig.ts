@@ -36,7 +36,7 @@ import {
 } from "./types";
 
 import { Dict, parseBoolean, parseDuration } from "../base";
-import { ChannelGroup, ChannelSource, StreamProto } from "../types";
+import { ChannelGroup, ChannelSource, StreamProtocol } from "../types";
 
 const basePath = path.resolve(__dirname, "../../config");
 const mainPath = path.join(basePath, "main.yaml");
@@ -145,7 +145,7 @@ async function readPlaylists(): Promise<Dict<PlaylistConfig>> {
                 filter: (raw.filter && filters[raw.filter]) || null,
                 format: formats[raw.format] || null,
                 channelSources: raw.channelSources ? raw.channelSources.split(",").map(s => s.trim()) : [],
-                ...parseStreamProtoProfile(raw.proto || ""),
+                ...parseStreamProtocol(raw.protocol || ""),
             };
 
             return result;
@@ -304,24 +304,29 @@ function parseTtvChannelSourceConfig(raw: RawTtvApiChannelSourceConfig): TtvApiC
     };
 }
 
-function parseStreamProtoProfile(raw: string): { proto: StreamProto, protoProfile: string } {
+function parseStreamProtocol(
+    raw: string,
+): {
+    protocol: StreamProtocol,
+    protocolProfile: string,
+} {
     const [name, profile] = raw.split("/");
 
     return {
-        proto: parseStreamProto(name),
-        protoProfile: profile || "",
+        protocol: parseStreamProto(name),
+        protocolProfile: profile || "",
     };
 }
 
-function parseStreamProto(raw: string): StreamProto {
+function parseStreamProto(raw: string): StreamProtocol {
     switch (raw) {
         case "":
         case "progressive":
-            return StreamProto.Progressive;
+            return StreamProtocol.Progressive;
         case "hls":
-            return StreamProto.Hls;
+            return StreamProtocol.Hls;
         default:
-            throw new Error(`Can't parse stream proto: ${raw}`);
+            throw new Error(`Can't parse stream protocol: ${raw}`);
     }
 }
 
