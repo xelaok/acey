@@ -4,11 +4,9 @@
         "target": "esnext",
         "module": "esnext",
         "moduleResolution": "node",
+        "strict": true,
         "sourceMap": true,
-        "noImplicitAny": true,
-        "strictNullChecks": true,
         "allowSyntheticDefaultImports": true,
-        "preserveSymlinks": true,
         "lib": ["es6", "dom"],
         "paths": {}
     },

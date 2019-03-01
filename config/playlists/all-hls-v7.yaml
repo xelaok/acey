@@ -1,0 +1,4 @@
+filter: ~
+format: default
+proto: hls/v7
+channelSources: ttv, as

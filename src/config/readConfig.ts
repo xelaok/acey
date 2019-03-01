@@ -1,115 +1,129 @@
+import os from "os";
 import fs from "fs";
 import path from "path";
 import yaml from "js-yaml";
-import _ from "lodash";
+import { reduce } from "lodash";
+import ffmpeg from "@ffmpeg-installer/ffmpeg";
 
 import {
-    AceUrlSourceConfig,
+    AceUrlChannelSourceConfig,
     Config,
+    FFmpegConfig,
+    HlsConfig,
+    HlsProfile,
     PlaylistConfig,
     PlaylistFilterConfig,
     PlaylistFormatConfig,
-    RawAceUrlSourceConfig,
-    RawGroupConfig,
+    ProgressiveDownloadConfig,
+    RawAceUrlChannelSourceConfig,
+    RawFFmpegConfig,
+    RawChannelGroupConfig,
+    RawHlsConfig,
+    RawHlsProfile,
     RawMainConfig,
     RawPlaylistConfig,
     RawPlaylistFilterConfig,
     RawPlaylistFormatConfig,
-    RawSourceConfig,
+    RawProgressiveDownloadConfig,
+    RawServerConfig,
+    RawChannelSourceConfig,
     RawStreamConfig,
-    RawTtvApiSourceConfig,
-    SourceConfig,
+    RawTtvApiChannelSourceConfig,
+    ServerConfig,
+    ChannelSourceConfig,
     StreamConfig,
-    TtvApiSourceConfig,
+    TtvApiChannelSourceConfig,
 } from "./types";
 
-import { Dict, parseDuration, parseBoolean } from "../base";
-import { StreamGroup, StreamSourceType } from "../types";
+import { Dict, parseBoolean, parseDuration } from "../base";
+import { ChannelGroup, ChannelSource, StreamProto } from "../types";
 
 const basePath = path.resolve(__dirname, "../../config");
 const mainPath = path.join(basePath, "main.yaml");
-const groupsPath = path.join(basePath, "groups.yaml");
-const groupsMapPath = path.join(basePath, "groups-map.yaml");
 const playlistsPath = path.join(basePath, "playlists");
 const playlistFiltersPath = path.join(basePath, "playlist-filters");
 const playlistFormatsPath = path.join(basePath, "playlist-formats");
-const sourcesPath = path.join(basePath, "sources");
+const channelSourcesPath = path.join(basePath, "channel-sources");
+const channelGroupsPath = path.join(basePath, "channel-groups.yaml");
+const channelGroupsMapPath = path.join(basePath, "channel-groups-map.yaml");
 
 async function readConfig(): Promise<Config> {
-    const rawMainConfig$ = readConfigFile<RawMainConfig>(mainPath);
-    const groups$ = readGroups();
-    const sources$ = readSources();
+    const rawConfig$ = readConfigFile<RawMainConfig>(mainPath);
+    const groups$ = readChannelGroups();
+    const channelSources$ = readChannelSources();
     const playlists$ = readPlaylists();
 
     const groupsMap$ = groups$.then(
-        channelGroups => readGroupsMap(channelGroups)
+        channelGroups => readChannelGroupsMap(channelGroups)
     );
 
     const [
-        rawMainConfig,
+        rawConfig,
         groups,
         groupsMap,
-        sources,
+        channelSources,
         playlists,
     ] = await Promise.all([
-        rawMainConfig$,
+        rawConfig$,
         groups$,
         groupsMap$,
-        sources$,
+        channelSources$,
         playlists$,
     ]);
 
     return {
-        app: rawMainConfig.app,
-        server: rawMainConfig.server,
-        aceEngine: rawMainConfig.aceEngine,
-        stream: parseStreamConfig(rawMainConfig.stream),
-        ttvApi: rawMainConfig.ttvApi,
-        logger: rawMainConfig.logger,
+        app: rawConfig.app,
+        server: parseServerConfig(rawConfig.server),
+        aceApi: rawConfig.aceApi,
+        stream: parseStreamConfig(rawConfig.stream),
+        ffmpeg: parseFfmpegConfig(rawConfig.ffmpeg),
+        hls: parseHlsConfig(rawConfig.hls),
+        progressiveDownload: parseProgressiveDownloadConfig(rawConfig.progressiveDownload),
+        ttvApi: rawConfig.ttvApi,
+        logger: rawConfig.logger,
         groups,
         groupsMap,
-        sources,
+        channelSources,
         playlists,
     };
 }
 
-async function readGroups(): Promise<StreamGroup[]> {
-    const rawItems = await readConfigFile<RawGroupConfig[]>(groupsPath);
-    return rawItems;
+async function readChannelGroups(): Promise<ChannelGroup[]> {
+    return await readConfigFile<RawChannelGroupConfig[]>(channelGroupsPath);
 }
 
-async function readGroupsMap(groups: StreamGroup[]): Promise<Dict<StreamGroup>> {
-    const rawDict = await readConfigFile<Dict<string>>(groupsMapPath);
+async function readChannelGroupsMap(groups: ChannelGroup[]): Promise<Dict<ChannelGroup>> {
+    const rawDict = await readConfigFile<Dict<string>>(channelGroupsMapPath);
     const namesMap = groups.reduce((map, g) => map.set(g.name, g), new Map());
 
-    return _.reduce(
+    return reduce(
         rawDict,
         (result, name, key) => {
             result[key] = namesMap.get(name);
             return result;
         },
-        {} as Dict<StreamGroup>);
+        {} as Dict<ChannelGroup>);
 }
 
-async function readSources(): Promise<Dict<SourceConfig>> {
-    const rawConfigs = await readConfigDirectory<RawSourceConfig>(sourcesPath);
+async function readChannelSources(): Promise<Dict<ChannelSourceConfig>> {
+    const rawConfigs = await readConfigDirectory<RawChannelSourceConfig>(channelSourcesPath);
 
-    return _.reduce(
+    return reduce(
         rawConfigs,
         (result, raw, key) => {
             switch (raw.provider) {
                 case "ace-url":
-                    result[key] = parseAceUrlSourceConfig(raw as RawAceUrlSourceConfig);
+                    result[key] = parseAceUrlChannelSourceConfig(raw as RawAceUrlChannelSourceConfig);
                     break;
                 case "ttv-api":
-                    result[key] = parseTtvChannelSourceConfig(raw as RawTtvApiSourceConfig);
+                    result[key] = parseTtvChannelSourceConfig(raw as RawTtvApiChannelSourceConfig);
                     break;
                 default:
-                    throw new Error(`Unknown source provider: "${raw.provider}"`);
+                    throw new Error(`Unknown channel source provider: "${raw.provider}"`);
             }
             return result;
         },
-        {} as Dict<SourceConfig>,
+        {} as Dict<ChannelSourceConfig>,
     );
 }
 
@@ -124,13 +138,14 @@ async function readPlaylists(): Promise<Dict<PlaylistConfig>> {
         readPlaylistFormats(),
     ]);
 
-    return _.reduce(
+    return reduce(
         rawConfigs,
         (result, raw, key) => {
             result[key] = {
                 filter: (raw.filter && filters[raw.filter]) || null,
                 format: formats[raw.format] || null,
-                sources: raw.sources ? raw.sources.split(",").map(s => s.trim()) : [],
+                channelSources: raw.channelSources ? raw.channelSources.split(",").map(s => s.trim()) : [],
+                ...parseStreamProtoProfile(raw.proto || ""),
             };
 
             return result;
@@ -214,34 +229,100 @@ async function readDir(path: string): Promise<string[]> {
     });
 }
 
-function parseStreamConfig(raw: RawStreamConfig): StreamConfig {
+function parseServerConfig(raw: RawServerConfig): ServerConfig {
     return {
         ...raw,
-        requestTimeout: parseDuration(raw.requestTimeout),
-        stopDelay: parseDuration(raw.stopDelay),
-        sharedBufferLength: parseDuration(raw.sharedBufferLength),
-        clientIdleTimeout: parseDuration(raw.clientIdleTimeout),
-        clientMaxBufferLength: parseDuration(raw.clientMaxBufferLength),
-        clientResetBufferLength: parseDuration(raw.clientResetBufferLength),
-        chunkedTransferEncoding: parseBoolean(raw.chunkedTransferEncoding),
+        logRequests: parseBoolean(raw.logRequests),
     };
 }
 
-function parseAceUrlSourceConfig(raw: RawAceUrlSourceConfig): AceUrlSourceConfig {
+function parseStreamConfig(raw: RawStreamConfig): StreamConfig {
     return {
-        provider: StreamSourceType.Ace,
+        ...raw,
+        stopDelay: parseDuration(raw.stopDelay),
+        sharedBufferLength: parseDuration(raw.sharedBufferLength),
+        requestTimeout: parseDuration(raw.requestTimeout),
+        responseTimeout: parseDuration(raw.responseTimeout),
+    };
+}
+
+function parseFfmpegConfig(raw: RawFFmpegConfig): FFmpegConfig {
+    return {
+        ...raw,
+        binPath: raw.binPath || ffmpeg.path,
+        outPath: raw.outPath || os.tmpdir(),
+        logOutput: parseBoolean(raw.logOutput),
+    };
+}
+
+function parseHlsConfig(raw: RawHlsConfig): HlsConfig {
+    const result: HlsConfig = {};
+
+    for (const name in raw) {
+        result[name] = parseHlsProfile(raw[name]);
+    }
+
+    return result;
+}
+
+function parseHlsProfile(raw: RawHlsProfile): HlsProfile {
+    return {
+        ...raw,
+        idleTimeout: parseDuration(raw.idleTimeout),
+        requestTimeout: parseDuration(raw.requestTimeout),
+        segmentLength: parseDuration(raw.segmentLength),
+        maxIndexLength: parseDuration(raw.maxIndexLength),
+        minIndexLength: parseDuration(raw.minIndexLength),
+        deleteThresholdLength: parseDuration(raw.deleteThresholdLength),
+        ffmpegArgs: raw.ffmpegArgs.trim(),
+    };
+}
+
+function parseProgressiveDownloadConfig(raw: RawProgressiveDownloadConfig): ProgressiveDownloadConfig {
+    return {
+        ...raw,
+        clientIdleTimeout: parseDuration(raw.clientIdleTimeout),
+        clientMaxBufferLength: parseDuration(raw.clientMaxBufferLength),
+        clientResetBufferLength: parseDuration(raw.clientResetBufferLength),
+    };
+}
+
+function parseAceUrlChannelSourceConfig(raw: RawAceUrlChannelSourceConfig): AceUrlChannelSourceConfig {
+    return {
+        provider: ChannelSource.Ace,
         label: raw.label,
         url: raw.url,
         updateInterval: parseDuration(raw.updateInterval),
     };
 }
 
-function parseTtvChannelSourceConfig(raw: RawTtvApiSourceConfig): TtvApiSourceConfig {
+function parseTtvChannelSourceConfig(raw: RawTtvApiChannelSourceConfig): TtvApiChannelSourceConfig {
     return {
-        provider: StreamSourceType.Ttv,
+        provider: ChannelSource.Ttv,
         label: raw.label,
         updateInterval: parseDuration(raw.updateInterval),
     };
+}
+
+function parseStreamProtoProfile(raw: string): { proto: StreamProto, protoProfile: string } {
+    const [name, profile] = raw.split("/");
+
+    return {
+        proto: parseStreamProto(name),
+        protoProfile: profile || "",
+    };
+}
+
+function parseStreamProto(raw: string): StreamProto {
+    switch (raw) {
+        case "":
+        case "progressive":
+            return StreamProto.Progressive;
+        case "hls":
+            return StreamProto.Hls;
+        default:
+            throw new Error(`Can't parse stream proto: ${raw}`);
+    }
 }
 
 export {

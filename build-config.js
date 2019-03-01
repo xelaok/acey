@@ -10,18 +10,21 @@ const options = {
         buildDir: "dev",
         bundle: {
             sourceMap: false,
+            moduleConcatenation: false,
         },
     },
     release: {
         buildDir: "dev",
         bundle: {
             sourceMap: false,
+            moduleConcatenation: true,
         },
     },
     production: {
         buildDir: "prod",
         bundle: {
             sourceMap: false,
+            moduleConcatenation: true,
         },
     },
 };

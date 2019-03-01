@@ -1,8 +1,8 @@
 import fetch from "node-fetch";
 
 type FetchContentResult = {
-    content: string,
-    lastModifiedString: string | null,
+    content: string;
+    lastModifiedString: string | null;
 };
 
 async function fetchContent(

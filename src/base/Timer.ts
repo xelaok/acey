@@ -1,6 +1,6 @@
 class Timer {
-    private duration: number;
-    private handler: () => void;
+    private readonly duration: number;
+    private readonly handler: () => void;
     private time: number = 0;
     private timeout: NodeJS.Timeout | null = null;
 
@@ -10,17 +10,33 @@ class Timer {
     }
 
     start(): void {
+        if (this.timeout) {
+            return;
+        }
+
         this.time = Date.now() + this.duration;
         this.setTimeout(this.duration);
     }
 
     stop(): void {
+        if (!this.timeout) {
+            return;
+        }
+
         this.time = 0;
         this.clearTimeout();
     }
 
     reset(): void {
+        if (!this.timeout) {
+            return;
+        }
+
         this.time = Date.now() + this.duration;
+    }
+
+    get isStarted(): boolean {
+        return this.timeout !== null;
     }
 
     private setTimeout(value: number): void {
@@ -48,6 +64,4 @@ class Timer {
     }
 }
 
-export {
-    Timer,
-}
+export { Timer }

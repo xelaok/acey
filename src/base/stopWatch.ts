@@ -2,10 +2,10 @@ import { tryResolveSync } from './tryResolveSync';
 import { getTime, getTimeDiff } from './perf-timers';
 
 type StopWatchResult<T> = {
-    time: number,
-    timeText: string,
-    result: T,
-}
+    time: number;
+    timeText: string;
+    result: T;
+};
 
 function stopWatch<T>(fn: () => T | Promise<T>): StopWatchResult<T> | Promise<StopWatchResult<T>> {
     const t = getTime();

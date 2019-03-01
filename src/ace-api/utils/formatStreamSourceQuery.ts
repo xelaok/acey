@@ -1,19 +1,19 @@
 import qs from "qs";
-import { StreamSource, StreamSourceType } from "../types";
+import { AceStreamSource, AceStreamSourceType } from "../types";
 
-function formatStreamSourceQuery(source: StreamSource, sid: string): string {
+function formatStreamSourceQuery(source: AceStreamSource, sid: string): string {
     switch (source.type) {
-        case StreamSourceType.Cid:
+        case AceStreamSourceType.Cid:
             return qs.stringify({
                 id: source.value,
                 sid: sid,
             });
-        case StreamSourceType.Torrent:
+        case AceStreamSourceType.Torrent:
             return qs.stringify({
                 url: source.value,
                 sid: sid,
             });
-        case StreamSourceType.Infohash:
+        case AceStreamSourceType.Infohash:
             return qs.stringify({
                 infohash: source.value,
                 sid: sid,

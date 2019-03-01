@@ -1,7 +1,6 @@
 tc qdisc del dev eth0 root
-tc qdisc add dev eth0 root handle 1: htb default 11
+tc qdisc add dev eth0 root handle 1: htb default 10
 tc class add dev eth0 parent 1: classid 1:1 htb rate 100mbit
-tc class add dev eth0 parent 1:1 classid 1:10 htb rate 90mbit ceil 100mbit prio 1
-tc class add dev eth0 parent 1:1 classid 1:11 htb rate 10mbit ceil 100mbit prio 2
-tc filter add dev eth0 parent 1: protocol ip u32 match ip sport 22 0xffff flowid 1:10
-tc filter add dev eth0 parent 1: protocol ip u32 match ip sport 8100 0xffff flowid 1:10
+tc class add dev eth0 parent 1:1 classid 1:10 htb rate 10mbit ceil 100mbit
+tc class add dev eth0 parent 1:1 classid 1:11 htb rate 90mbit ceil 100mbit
+tc filter add dev eth0 parent 1: protocol ip u32 match ip sport 0x0000 0xfc00 flowid 1:11

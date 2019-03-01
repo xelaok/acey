@@ -1,165 +1,229 @@
 import { Dict } from "../base";
-import { StreamGroup, StreamSourceType } from "../types";
+import { ChannelGroup, ChannelSource, StreamProto } from "../types";
 
 type RawMainConfig = {
-    app: RawAppConfig,
-    server: RawServerConfig,
-    aceEngine: RawAceEngineConfig,
-    stream: RawStreamConfig,
-    ttvApi: RawTtvApiConfig,
-    logger: RawLoginConfig,
-}
+    app: RawAppConfig;
+    server: RawServerConfig;
+    aceApi: RawAceApiConfig;
+    ttvApi: RawTtvApiConfig;
+    stream: RawStreamConfig;
+    ffmpeg: RawFFmpegConfig;
+    hls: RawHlsConfig;
+    progressiveDownload: RawProgressiveDownloadConfig;
+    logger: RawLoginConfig;
+};
 
 type RawAppConfig = AppConfig;
-type RawServerConfig = ServerConfig;
-type RawAceEngineConfig = AceEngineConfig;
+type RawAceApiConfig = AceApiConfig;
 type RawTtvApiConfig = TtvApiConfig;
 type RawLoginConfig = LoggerConfig;
-type RawGroupConfig = StreamGroup;
+type RawChannelGroupConfig = ChannelGroup;
+
+type RawServerConfig = {
+    binding: string;
+    publicPath: string;
+    logRequests: string;
+};
 
 type RawStreamConfig = {
-    requestTimeout: string,
-    stopDelay: string,
-    clientIdleTimeout: string,
-    clientMaxBufferLength: string,
-    clientResetBufferLength: string,
-    sharedBufferLength: string,
-    chunkedTransferEncoding: string,
-}
-
-type RawSourceConfig = {
-    provider: string,
-    label: string,
+    stopDelay: string;
+    sharedBufferLength: string;
+    requestTimeout: string;
+    responseTimeout: string;
 };
 
-type RawAceUrlSourceConfig = RawSourceConfig & {
-    url: string,
-    updateInterval: string,
+type RawFFmpegConfig = {
+    binPath: string;
+    outPath: string;
+    logOutput: string;
 };
 
-type RawTtvApiSourceConfig = RawSourceConfig & {
-    updateInterval: string,
+type RawHlsConfig = Dict<RawHlsProfile>;
+
+type RawHlsProfile = {
+    idleTimeout: string;
+    requestTimeout: string;
+    segmentLength: string;
+    minIndexLength: string;
+    maxIndexLength: string;
+    deleteThresholdLength: string;
+    ffmpegArgs: string;
+};
+
+type RawProgressiveDownloadConfig = {
+    clientIdleTimeout: string;
+    clientMaxBufferLength: string;
+    clientResetBufferLength: string;
+};
+
+type RawChannelSourceConfig = {
+    provider: string;
+    label: string;
+};
+
+type RawAceUrlChannelSourceConfig = RawChannelSourceConfig & {
+    url: string;
+    updateInterval: string;
+};
+
+type RawTtvApiChannelSourceConfig = RawChannelSourceConfig & {
+    updateInterval: string;
 };
 
 type RawPlaylistConfig = {
-    filter: string | null,
-    format: string,
-    sources: string | null,
+    filter: string | null;
+    format: string;
+    proto: string;
+    channelSources: string | null;
 };
 
 type RawPlaylistFilterConfig = string[];
 
 type RawPlaylistFormatConfig = {
-    useExtGrp: string,
-    useTvgNameAttr: string,
-    useTvgLogoAttr: string,
-    useGroupTitleAttr: string,
-    includeGroupName: string,
-    includeSourceLabel: string,
+    useExtGrp: string;
+    useTvgNameAttr: string;
+    useTvgLogoAttr: string;
+    useGroupTitleAttr: string;
+    includeGroupName: string;
+    includeSourceLabel: string;
 };
 
 type Config = {
-    app: AppConfig,
-    server: ServerConfig,
-    aceEngine: AceEngineConfig,
-    stream: StreamConfig,
-    ttvApi: TtvApiConfig,
-    logger: LoggerConfig,
-    groups: StreamGroup[],
-    groupsMap: Dict<StreamGroup>,
-    sources: Dict<SourceConfig>,
-    playlists: Dict<PlaylistConfig>,
+    app: AppConfig;
+    server: ServerConfig;
+    aceApi: AceApiConfig;
+    ttvApi: TtvApiConfig;
+    stream: StreamConfig;
+    ffmpeg: FFmpegConfig;
+    hls: HlsConfig;
+    progressiveDownload: ProgressiveDownloadConfig;
+    logger: LoggerConfig;
+    groups: ChannelGroup[];
+    groupsMap: Dict<ChannelGroup>;
+    channelSources: Dict<ChannelSourceConfig>;
+    playlists: Dict<PlaylistConfig>;
 };
 
 type AppConfig = {
-    dataDirectory: string,
+    dataDirectory: string;
 };
 
 type ServerConfig = {
-    binding: string,
-    publicPath: string,
+    binding: string;
+    logRequests: boolean;
 };
 
-type AceEngineConfig = {
-    path: string,
-}
+type AceApiConfig = {
+    endpoint: string;
+};
 
 type StreamConfig = {
-    requestTimeout: number,
-    stopDelay: number,
-    clientIdleTimeout: number,
-    clientMaxBufferLength: number,
-    clientResetBufferLength: number,
-    sharedBufferLength: number,
-    chunkedTransferEncoding: boolean,
-}
+    stopDelay: number;
+    sharedBufferLength: number;
+    requestTimeout: number;
+    responseTimeout: number;
+};
+
+type FFmpegConfig = {
+    binPath: string;
+    outPath: string;
+    logOutput: boolean;
+};
+
+type HlsConfig = Dict<HlsProfile>;
+
+type HlsProfile = {
+    idleTimeout: number;
+    requestTimeout: number;
+    segmentLength: number;
+    minIndexLength: number;
+    maxIndexLength: number;
+    deleteThresholdLength: number;
+    ffmpegArgs: string;
+};
+
+type ProgressiveDownloadConfig = {
+    clientIdleTimeout: number;
+    clientMaxBufferLength: number;
+    clientResetBufferLength: number;
+};
 
 type TtvApiConfig = {
-    username: string,
-    password: string,
-    endpoint: string,
-}
+    username: string;
+    password: string;
+    endpoint: string;
+};
 
 type LoggerConfig = {
-    level: string,
-}
+    level: string;
+};
 
-type SourceConfig = {
-    provider: StreamSourceType,
-    label: string,
-}
+type ChannelSourceConfig = {
+    provider: ChannelSource;
+    label: string;
+};
 
-type AceUrlSourceConfig = SourceConfig & {
-    url: string,
-    updateInterval: number,
-}
+type AceUrlChannelSourceConfig = ChannelSourceConfig & {
+    url: string;
+    updateInterval: number;
+};
 
-type TtvApiSourceConfig = SourceConfig & {
-    updateInterval: number,
-}
+type TtvApiChannelSourceConfig = ChannelSourceConfig & {
+    updateInterval: number;
+};
 
 type PlaylistConfig = {
-    filter: PlaylistFilterConfig,
-    format: PlaylistFormatConfig,
-    sources: string[],
-}
+    filter: PlaylistFilterConfig;
+    format: PlaylistFormatConfig;
+    proto: StreamProto;
+    protoProfile: string;
+    channelSources: string[];
+};
 
 type PlaylistFilterConfig = Set<string> | null;
 
 type PlaylistFormatConfig = {
-    useExtGrp: boolean,
-    useTvgNameAttr: boolean,
-    useTvgLogoAttr: boolean,
-    useGroupTitleAttr: boolean,
-    includeGroupName: boolean,
-    includeSourceLabel: boolean,
+    useExtGrp: boolean;
+    useTvgNameAttr: boolean;
+    useTvgLogoAttr: boolean;
+    useGroupTitleAttr: boolean;
+    includeGroupName: boolean;
+    includeSourceLabel: boolean;
 };
 
 export {
     RawMainConfig,
     RawAppConfig,
     RawServerConfig,
-    RawAceEngineConfig,
+    RawAceApiConfig,
     RawStreamConfig,
+    RawFFmpegConfig,
+    RawHlsConfig,
+    RawHlsProfile,
+    RawProgressiveDownloadConfig,
     RawTtvApiConfig,
     RawLoginConfig,
-    RawGroupConfig,
-    RawSourceConfig,
-    RawAceUrlSourceConfig,
-    RawTtvApiSourceConfig,
+    RawChannelGroupConfig,
+    RawChannelSourceConfig,
+    RawAceUrlChannelSourceConfig,
+    RawTtvApiChannelSourceConfig,
     RawPlaylistConfig,
     RawPlaylistFilterConfig,
     RawPlaylistFormatConfig,
     Config,
     AppConfig,
     ServerConfig,
-    AceEngineConfig,
+    AceApiConfig,
     StreamConfig,
+    FFmpegConfig,
+    HlsConfig,
+    HlsProfile,
+    ProgressiveDownloadConfig,
     TtvApiConfig,
     LoggerConfig,
-    SourceConfig,
-    AceUrlSourceConfig,
-    TtvApiSourceConfig,
+    ChannelSourceConfig,
+    AceUrlChannelSourceConfig,
+    TtvApiChannelSourceConfig,
     PlaylistConfig,
     PlaylistFilterConfig,
     PlaylistFormatConfig,

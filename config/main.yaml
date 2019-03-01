@@ -3,23 +3,71 @@ app:
 
 server:
     binding: 0.0.0.0:8100
-    publicPath: http://10.0.0.3:8100 # replace with the valid server path
+    logRequests: Y
 
-aceEngine:
-    path: http://127.0.0.1:6878
+aceApi:
+    endpoint: http://127.0.0.1:6878
 
 ttvApi:
-    username: username # change username
-    password: password # change password
+    username: username
+    password: password
     endpoint: http://api.torrent-tv.ru
 
 stream:
-    requestTimeout: 10s
     stopDelay: 3s
     sharedBufferLength: 5s
-    chunkedTransferEncoding: yes
+    requestTimeout: 1m
+    responseTimeout: 1m
+
+ffmpeg:
+    binPath: ~
+    outPath: ~
+#    binPath: /usr/bin/ffmpeg
+#    outPath: /mnt/ramdisk
+    logOutput: Y
+
+hls:
+    v3:
+        idleTimeout: 15s
+        requestTimeout: 1m
+        segmentLength: 2s
+        minIndexLength: 5s
+        maxIndexLength: 1m
+        deleteThresholdLength: 4s
+        ffmpegArgs: >
+            -i pipe:0
+            -c copy
+            -f hls
+            -hls_time {hlsTime}
+            -hls_list_size {hlsListSize}
+            -hls_delete_threshold {hlsDeleteThreshold}
+            -hls_segment_type mpegts
+            -hls_segment_filename %d.ts
+            -hls_flags delete_segments
+            {index}
+    v7:
+        idleTimeout: 15s
+        requestTimeout: 1m
+        segmentLength: 2s
+        minIndexLength: 5s
+        maxIndexLength: 1m
+        deleteThresholdLength: 4s
+        ffmpegArgs: >
+            -i pipe:0
+            -c:v copy
+            -c:a aac
+            -f hls
+            -hls_time {hlsTime}
+            -hls_list_size {hlsListSize}
+            -hls_delete_threshold {hlsDeleteThreshold}
+            -hls_segment_type fmp4
+            -hls_segment_filename %d.m4s
+            -hls_flags delete_segments
+            {index}
+
+progressiveDownload:
     clientIdleTimeout: 1m
-    clientMaxBufferLength: 1m
+    clientMaxBufferLength: 2m
     clientResetBufferLength: 15s
 
 logger:

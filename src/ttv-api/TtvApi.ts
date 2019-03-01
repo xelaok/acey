@@ -79,7 +79,7 @@ class TtvApi {
         return result.categories;
     }
 
-    async getAceStreamSource(id: number): Promise<aceApi.StreamSource> {
+    async getAceStreamSource(id: number): Promise<aceApi.AceStreamSource> {
         logger.debug(`TtvApi > request channel ace source (id: ${id}) ..`);
 
         const { timeText, result } = await stopWatch(() =>
@@ -124,12 +124,12 @@ class TtvApi {
     }
 }
 
-function parseAceStreamSourceType(type: string): aceApi.StreamSourceType {
+function parseAceStreamSourceType(type: string): aceApi.AceStreamSourceType {
     switch (type) {
         case "contentid":
-            return aceApi.StreamSourceType.Cid;
+            return aceApi.AceStreamSourceType.Cid;
         case "torrent":
-            return aceApi.StreamSourceType.Torrent;
+            return aceApi.AceStreamSourceType.Torrent;
         default:
             throw new Error(`Unknown source type string: "${type}".`);
     }

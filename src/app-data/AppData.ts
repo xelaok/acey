@@ -1,7 +1,7 @@
 import fs from "fs";
 import path from "path";
-import mkdirp from "mkdirp";
 import clone from "clone";
+import fse from "fs-extra";
 
 import {
     getAppDataPath,
@@ -13,41 +13,41 @@ import {
 import { AppConfig } from "../config";
 
 type TtvAuthData = {
-    session: string,
+    session: string;
 };
 
 type TtvAuthDataList = Array<{
-    username: string,
-    data: TtvAuthData,
+    username: string;
+    data: TtvAuthData;
 }>;
 
 type TtvGuidData = string;
 
 type TtvSourceRawData = {
-    lastFetched: number,
-    rawChannels: string,
-    rawChannelCategories: string,
+    lastFetched: number;
+    rawChannels: string;
+    rawChannelCategories: string;
 };
 
 type TtvSourceRawDataList = Array<{
-    session: string,
-    data: TtvSourceRawData,
+    session: string;
+    data: TtvSourceRawData;
 }>;
 
 type TtvSourceData = {
-    lastFetched: number,
-    rawChannels: any[],
-    rawChannelCategories: any[],
+    lastFetched: number;
+    rawChannels: any[];
+    rawChannelCategories: any[];
 };
 
 type AceSourceData = {
-    lastFetched: number,
-    fetchResult: FetchContentResult,
+    lastFetched: number;
+    fetchResult: FetchContentResult;
 };
 
 type AceSourceDataList = Array<{
-    url: string,
-    data: AceSourceData,
+    url: string;
+    data: AceSourceData;
 }>;
 
 const Entities = {
@@ -60,12 +60,12 @@ const Entities = {
 class AppData {
     dataPath: string;
 
-    constructor(appConfig: AppConfig) {
-        this.dataPath = getAppDataPath(appConfig.dataDirectory);
+    constructor(config: AppConfig) {
+        this.dataPath = getAppDataPath(config.dataDirectory);
     }
 
     async init(): Promise<void> {
-        await this.makeDataDir();
+        await fse.mkdirp(this.dataPath);
     }
 
     async readTtvGuid(): Promise<TtvGuidData | null> {
@@ -204,20 +204,6 @@ class AppData {
         }
 
         await this.writeData(Entities.AceSource, list);
-    }
-
-
-    private async makeDataDir(): Promise<void> {
-        return new Promise((resolve, reject) => {
-            mkdirp(this.dataPath, (err) => {
-                if (err) {
-                    reject(err);
-                    return;
-                }
-
-                resolve();
-            })
-        });
     }
 
     private async readData<T>(name: string): Promise<T | null> {

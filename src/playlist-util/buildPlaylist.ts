@@ -1,40 +1,45 @@
 import { sortBy } from "lodash";
+import urlJoin from "url-join";
 import { CRLF } from "../base";
-import { StreamGroup, StreamType, ClientStreamInfo } from "../types";
-import { PlaylistFormatConfig, PlaylistFilterConfig } from "../config";
+import { ChannelGroup, ChannelSource, StreamProto } from "../types";
+import { PlaylistFilterConfig, PlaylistFormatConfig } from "../config";
+import { ChannelSourceInfo } from "../channel-sources";
+import { HLS_INDEX_PLAYLIST_NAME } from "../hls";
 
 function buildPlaylist(
-    streamPath: string,
-    streamInfos: ClientStreamInfo[],
-    groups: StreamGroup[],
+    basePath: string,
+    channelSourceInfos: ChannelSourceInfo[],
+    groups: ChannelGroup[],
     playlistFormat: PlaylistFormatConfig,
     filter: PlaylistFilterConfig | null,
+    streamProto: StreamProto,
+    streamProtoProfile: string,
     filterNegative: boolean,
 ): string {
-    let resultStreamInfos = streamInfos;
-    resultStreamInfos = sortStreams(resultStreamInfos, groups);
-    resultStreamInfos = filterStreams(resultStreamInfos, filter, filterNegative);
+    let resultChannelSourceInfos = channelSourceInfos;
+    resultChannelSourceInfos = filterChannels(resultChannelSourceInfos, filter, filterNegative);
+    resultChannelSourceInfos = sortChannels(resultChannelSourceInfos, groups);
 
-    let result = "#EXTM3U" + CRLF;
+    let result = "#EXTM3U" + CRLF + CRLF;
 
-    for (const si of resultStreamInfos) {
-        const groupTitle = si.stream.group ? si.stream.group.title : "";
+    for (const si of resultChannelSourceInfos) {
+        const groupTitle = si.channel.group ? si.channel.group.title : "";
 
         result +=`#EXTINF:-1`;
 
         if (playlistFormat.useTvgNameAttr) {
-            result += ` tvg-name="${si.stream.name}"`;
+            result += ` tvg-name="${si.channel.name}"`;
         }
 
-        if (playlistFormat.useTvgLogoAttr && si.stream.logoUrl) {
-            result += ` tvg-logo="${si.stream.logoUrl}"`;
+        if (playlistFormat.useTvgLogoAttr && si.channel.logoUrl) {
+            result += ` tvg-logo="${si.channel.logoUrl}"`;
         }
 
         if (playlistFormat.useGroupTitleAttr && groupTitle) {
             result += ` group-title="${groupTitle}"`;
         }
 
-        result += `,${si.stream.name}`;
+        result += `,${si.channel.name}`;
 
         if (playlistFormat.includeGroupName && groupTitle) {
             result += ` (${groupTitle})`;
@@ -50,52 +55,63 @@ function buildPlaylist(
             result += `#EXTGRP:${groupTitle}${CRLF}`;
         }
 
-        result += `${streamPath}/${getStreamTypePath(si)}/${si.stream.id}.mp4${CRLF}`;
+        switch (streamProto) {
+            case StreamProto.Progressive:
+                result += urlJoin(basePath, `s/${getStreamTypePath(si)}/${si.channel.id}.ts`);
+                break;
+            case StreamProto.Hls:
+                result += urlJoin(basePath, `s/${getStreamTypePath(si)}/${si.channel.id}/hls/${streamProtoProfile}/${HLS_INDEX_PLAYLIST_NAME}`);
+                break;
+            default:
+                throw new Error(`Unknown stream proto: ${streamProto}`);
+        }
+
+        result += CRLF + CRLF;
     }
 
     return result;
 }
 
-function sortStreams(
-    streamInfos: ClientStreamInfo[],
-    groups: StreamGroup[]
-): ClientStreamInfo[] {
-    const groupIndexMap = groups.reduce(
-        (map, g, idx) => map.set(g.name, idx),
-        new Map<string, number>()
-    );
-
-    const otherGroupIndex = groups.length;
-
-    return sortBy(streamInfos, [
-        (info: ClientStreamInfo) => info.stream.group ? groupIndexMap.get(info.stream.group.name) : otherGroupIndex,
-        (info: ClientStreamInfo) => info.stream.name.toLowerCase(),
-    ]);
-}
-
-function filterStreams(
-    streamInfos: ClientStreamInfo[],
+function filterChannels(
+    channelSourceInfos: ChannelSourceInfo[],
     filter: PlaylistFilterConfig | null,
     filterNegative: boolean,
 ) {
     if (filter) {
-        return streamInfos.filter(si =>
-            filter.has(si.stream.name.toLowerCase()) === !filterNegative
+        return channelSourceInfos.filter(csi =>
+            filter.has(csi.channel.name.toLowerCase()) === !filterNegative
         );
     }
     else {
-        return streamInfos;
+        return channelSourceInfos;
     }
 }
 
-function getStreamTypePath(streamInfo: ClientStreamInfo): string {
-    switch (streamInfo.streamType) {
-        case StreamType.Ace:
+function sortChannels(
+    channelSourceInfos: ChannelSourceInfo[],
+    channelGroups: ChannelGroup[]
+): ChannelSourceInfo[] {
+    const groupIndexMap = channelGroups.reduce(
+        (map, g, idx) => map.set(g.name, idx),
+        new Map<string, number>()
+    );
+
+    const otherGroupIndex = channelGroups.length;
+
+    return sortBy(channelSourceInfos, [
+        (csi: ChannelSourceInfo) => csi.channel.group ? groupIndexMap.get(csi.channel.group.name) : otherGroupIndex,
+        (csi: ChannelSourceInfo) => csi.channel.name.toLowerCase(),
+    ]);
+}
+
+function getStreamTypePath(channelSourceInfo: ChannelSourceInfo): string {
+    switch (channelSourceInfo.channel.source) {
+        case ChannelSource.Ace:
             return "ace";
-        case StreamType.Ttv:
+        case ChannelSource.Ttv:
             return "ttv";
         default:
-            throw new Error(`Unknown stream type: "${streamInfo.streamType}"`);
+            throw new Error(`Unknown channel source: ${channelSourceInfo.channel.source}`);
     }
 }
 

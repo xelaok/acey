@@ -1,3 +1,4 @@
 filter: ~
 format: default
-sources: ttv, as
+proto: progressive
+channelSources: ttv, as

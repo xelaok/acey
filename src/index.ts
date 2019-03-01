@@ -1,13 +1,17 @@
-import _ from "lodash";
+import { sortBy } from "lodash";
 import { FetchError } from "node-fetch";
 import nodeCleanup from "node-cleanup";
 import { logger, setupLogger, forget } from "./base";
 import { readConfig, Config } from "./config";
 import { AppData } from "./app-data";
+import { AceApi } from "./ace-api";
 import { TtvApi } from "./ttv-api";
-import { AceStreamRepository, TtvStreamRepository } from "./repositories";
-import { Sources } from "./sources";
-import { Streams } from "./streams";
+import { ChannelRepository } from "./channel-repository";
+import { FFmpeg } from "./ffmpeg";
+import { ChannelSources } from "./channel-sources";
+import { Streaming } from "./streaming";
+import { Progressive } from "./progressive";
+import { Hls } from "./hls";
 import { Server } from "./server";
 
 main().catch(err => {
@@ -19,63 +23,88 @@ async function main(): Promise<void> {
 
     setupLogger(config.logger);
 
-    const appData = new AppData(config.app);
-    const ttvApi = new TtvApi(config.ttvApi, appData);
-    const aceStreamRepository = new AceStreamRepository();
-    const ttvStreamRepository = new TtvStreamRepository();
+    const appData = new AppData(
+        config.app,
+    );
 
-    const sources = new Sources(
-        config.sources,
+    const aceApi = new AceApi(
+        config.aceApi,
+    );
+
+    const ttvApi = new TtvApi(
+        config.ttvApi,
+        appData,
+    );
+
+    const ffmpeg = new FFmpeg(
+        config.ffmpeg,
+    );
+
+    const channelRepository = new ChannelRepository();
+
+    const channelSources = new ChannelSources(
+        config.channelSources,
         config.groupsMap,
         appData,
         ttvApi,
-        aceStreamRepository,
-        ttvStreamRepository,
+        channelRepository,
     );
 
-    const streams = new Streams(
+    const streaming = new Streaming(
         config.stream,
-        config.aceEngine,
+        aceApi,
+        ttvApi,
+    );
+
+    const progressiveDownload = new Progressive(
+        config.progressiveDownload,
+        streaming,
+    );
+
+    const hls = new Hls(
+        config.hls,
+        ffmpeg,
+        streaming,
     );
 
     const server = new Server(
         config.server,
         config.groups,
         config.playlists,
-        ttvApi,
-        aceStreamRepository,
-        ttvStreamRepository,
-        sources,
-        streams,
+        channelRepository,
+        channelSources,
+        progressiveDownload,
+        hls,
     );
 
     logConfig(config, appData);
 
     await appData.init();
     await ttvApi.auth();
-    await sources.start();
+    await channelSources.open();
     await server.start();
 
     handleExceptions();
-    handleTermination(sources, streams);
-
+    handleTermination(channelSources, streaming, hls);
     logPlaylists(config);
     logger.info("Ready");
 }
 
-function logConfig(config: Config, appData: AppData) {
-    logger.verbose(`version            ${(process.env.appPackage as any).version}`);
-    logger.verbose(`process id         ${process.pid}`);
-    logger.verbose(`nodejs version     ${process.version}`);
-    logger.verbose(`app data           ${appData.dataPath}`);
-    logger.verbose(`server.binding     ${config.server.binding}`);
-    logger.verbose(`server.publicPath  ${config.server.publicPath}`);
-    logger.verbose(`aceEngine.path     ${config.aceEngine.path}`);
-    logger.verbose(`logger.level       ${config.logger.level}`);
+function logConfig(config: Config, appData: AppData): void {
+    logger.verbose(`version          ${(process.env.appPackage as any).version}`);
+    logger.verbose(`process id       ${process.pid}`);
+    logger.verbose(`nodejs version   ${process.version}`);
+    logger.verbose(`app data         ${appData.dataPath}`);
+    logger.verbose(`server.binding   ${config.server.binding}`);
+    logger.verbose(`aceApi.endpoint  ${config.aceApi.endpoint}`);
+    logger.verbose(`ttvApi.endpoint  ${config.ttvApi.endpoint}`);
+    logger.verbose(`ffmpeg.binPath   ${config.ffmpeg.binPath}`);
+    logger.verbose(`ffmpeg.outPath   ${config.ffmpeg.outPath}`);
+    logger.verbose(`logger.level     ${config.logger.level}`);
 }
 
 function logPlaylists(config: Config): void {
-    const names = _.sortBy(Object.getOwnPropertyNames(config.playlists), name => name);
+    const names = sortBy(Object.getOwnPropertyNames(config.playlists), name => name);
 
     if (names.length === 0) {
         return;
@@ -84,7 +113,7 @@ function logPlaylists(config: Config): void {
     logger.info("Playlists:");
 
     for (const name of names) {
-        logger.info(`- ${config.server.publicPath}/${name}.m3u`);
+        logger.info(`- /${name}.m3u`);
     }
 }
 
@@ -98,7 +127,7 @@ function handleExceptions(): void {
     });
 }
 
-function handleTermination(sources: Sources, streams: Streams): void {
+function handleTermination(channelSources: ChannelSources, streaming: Streaming, hls: Hls): void {
     nodeCleanup((exitCode, signal) => {
         console.log("");
 
@@ -112,8 +141,11 @@ function handleTermination(sources: Sources, streams: Streams): void {
             try {
                 logger.info("Cleaning up...");
 
-                sources.stop();
-                await streams.dispose();
+                await Promise.all([
+                    channelSources.close(),
+                    hls.close(),
+                    streaming.close(),
+                ]);
 
                 logger.info("Done.");
             }

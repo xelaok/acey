@@ -66,6 +66,12 @@ function getConfig(buildConfig) {
                 },
             ],
         },
+        optimization: {
+            minimize: false,
+            concatenateModules: buildConfig.bundle.moduleConcatenation,
+            usedExports: true,
+            sideEffects: true,
+        },
         plugins: defineList([
             new CleanPlugin(
                 [buildPath],

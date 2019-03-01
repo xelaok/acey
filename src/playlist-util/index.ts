@@ -1,3 +1,3 @@
 export * from "./buildPlaylist";
-export * from "./parsePlaylist";
+export * from "./parseAcePlaylist";
 
