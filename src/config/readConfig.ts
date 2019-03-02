@@ -35,7 +35,7 @@ import {
     TtvApiChannelSourceConfig,
 } from "./types";
 
-import { Dict, parseBoolean, parseDuration } from "../base";
+import { Dict, getVMemTempDir, parseBoolean, parseDuration } from "../base";
 import { ChannelGroup, ChannelSource, StreamProtocol } from "../types";
 
 const basePath = path.resolve(__dirname, "../../config");
@@ -71,12 +71,14 @@ async function readConfig(): Promise<Config> {
         playlists$,
     ]);
 
+    const vmemTempDir = await getVMemTempDir();
+
     return {
         app: rawConfig.app,
         server: parseServerConfig(rawConfig.server),
         aceApi: rawConfig.aceApi,
         stream: parseStreamConfig(rawConfig.stream),
-        ffmpeg: parseFfmpegConfig(rawConfig.ffmpeg),
+        ffmpeg: parseFfmpegConfig(rawConfig.ffmpeg, vmemTempDir),
         hls: parseHlsConfig(rawConfig.hls),
         progressiveDownload: parseProgressiveDownloadConfig(rawConfig.progressiveDownload),
         ttvApi: rawConfig.ttvApi,
@@ -247,11 +249,11 @@ function parseStreamConfig(raw: RawStreamConfig): StreamConfig {
     };
 }
 
-function parseFfmpegConfig(raw: RawFFmpegConfig): FFmpegConfig {
+function parseFfmpegConfig(raw: RawFFmpegConfig, vmemTempDir: string | null): FFmpegConfig {
     return {
         ...raw,
         binPath: raw.binPath || ffmpeg.path,
-        outPath: raw.outPath || os.tmpdir(),
+        outPath: raw.outPath || vmemTempDir || os.tmpdir(),
         logOutput: parseBoolean(raw.logOutput),
     };
 }
