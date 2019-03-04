@@ -65,12 +65,12 @@ class ProgressiveClient {
             logger.debug(`- ${err.message}`);
         });
 
-        this.request.raw.res.once("close", () => {
+        this.request.raw.res.on("close", () => {
             logger.debug(`${this.streamAlias} > client ${this.clientAlias} > response closed`);
             this.close();
         });
 
-        this.request.raw.res.once("finish", () => {
+        this.request.raw.res.on("finish", () => {
             logger.debug(`${this.streamAlias} > client ${this.clientAlias} > response finished`);
             this.close();
         });
@@ -80,7 +80,7 @@ class ProgressiveClient {
             logger.debug(`- ${err.message}`);
         });
 
-        this.request.raw.req.once("close", () => {
+        this.request.raw.req.on("close", () => {
             logger.debug(`${this.streamAlias} > client ${this.clientAlias} > request closed`);
             this.close();
         });

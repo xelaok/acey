@@ -86,7 +86,8 @@ async function main(): Promise<void> {
     await server.start();
 
     handleExceptions();
-    handleTermination(channelSources, streaming, hls);
+    handleCleanup(channelSources, streaming, hls);
+
     logPlaylists(config);
     logger.info("Ready");
 }
@@ -128,7 +129,7 @@ function handleExceptions(): void {
     });
 }
 
-function handleTermination(channelSources: ChannelSources, streaming: Streaming, hls: Hls): void {
+function handleCleanup(channelSources: ChannelSources, streaming: Streaming, hls: Hls): void {
     nodeCleanup((exitCode, signal) => {
         console.log("");
 

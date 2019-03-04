@@ -117,7 +117,7 @@ class StreamContext {
             logger.warn(`- ${err.message}`);
         });
 
-        response.body.once("close", () => {
+        response.body.on("close", () => {
             logger.debug(`${this.alias} > response > closed`);
 
             this.idleTimer.stop();
@@ -126,7 +126,7 @@ class StreamContext {
             this.closeAllClientStreams();
         });
 
-        response.body.once("finish", () => {
+        response.body.on("finish", () => {
             logger.debug(`${this.alias} > response > finished`);
 
             this.idleTimer.stop();

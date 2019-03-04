@@ -14,7 +14,7 @@ type InitResult = {
     ffmpegWorker: FFmpegWorker;
 };
 
-const READ_FILE_HIGH_WATERMARK = 1 << 24;
+const READ_FILE_HIGH_WATERMARK = 1 << 22;
 const READ_INDEX_FILE_HIGHWATERMARK = 1 << 20;
 
 class HlsStream {
