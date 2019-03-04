@@ -3,7 +3,7 @@ import fs from "fs";
 import path from "path";
 import yaml from "js-yaml";
 import { reduce } from "lodash";
-import ffmpeg from "@ffmpeg-installer/ffmpeg";
+import { tryResolveFfmpegInstallerPath } from "./utils/tryResolveFfmpegInstallerPath"
 
 import {
     AceUrlChannelSourceConfig,
@@ -252,7 +252,7 @@ function parseStreamConfig(raw: RawStreamConfig): StreamConfig {
 function parseFfmpegConfig(raw: RawFFmpegConfig, vmemTempDir: string | null): FFmpegConfig {
     return {
         ...raw,
-        binPath: raw.binPath || ffmpeg.path,
+        binPath: raw.binPath || tryResolveFfmpegInstallerPath() || "ffmpeg",
         outPath: raw.outPath || vmemTempDir || os.tmpdir(),
         logOutput: parseBoolean(raw.logOutput),
     };
