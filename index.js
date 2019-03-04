@@ -1,1 +1,1 @@
-require("./build/prod");
+require("./load")("prod");

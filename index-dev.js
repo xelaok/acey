@@ -1,1 +1,1 @@
-require("./build/dev");
+require("./load")("dev");
