@@ -62,7 +62,7 @@ hls:
             -hls_segment_filename %d.m4s
             {index}
 
-progressiveDownload:
+progressive:
     clientIdleTimeout: 1m
     clientMaxBufferLength: 2m
     clientResetBufferLength: 15s
