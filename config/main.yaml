@@ -4,7 +4,6 @@ app:
 server:
     binding: 0.0.0.0:8100
     accessToken: ~
-#    accessToken: abc
     logRequests: Y
 
 aceApi:
@@ -17,15 +16,13 @@ ttvApi:
 
 stream:
     stopDelay: 3s
-    sharedBufferLength: 5s
+    sharedBufferLength: 30s
     requestTimeout: 1m
     responseTimeout: 1m
 
 ffmpeg:
     binPath: ~
     outPath: ~
-#    binPath: /usr/bin/ffmpeg
-#    outPath: /mnt/ramdisk
     logOutput: Y
 
 hls:
@@ -33,8 +30,9 @@ hls:
         idleTimeout: 15s
         requestTimeout: 1m
         segmentLength: 2s
-        minIndexLength: 5s
-        maxIndexLength: 1m
+        minListLength: 6s
+        maxListLength: 10s
+        minPrebufferLength: 6s
         deleteThresholdLength: 4s
         ffmpegArgs: >
             -i pipe:0
@@ -42,17 +40,16 @@ hls:
             -f hls
             -hls_time {hlsTime}
             -hls_list_size {hlsListSize}
-            -hls_delete_threshold {hlsDeleteThreshold}
             -hls_segment_type mpegts
             -hls_segment_filename %d.ts
-            -hls_flags delete_segments
             {index}
     v7:
         idleTimeout: 15s
         requestTimeout: 1m
         segmentLength: 2s
-        minIndexLength: 5s
-        maxIndexLength: 1m
+        minListLength: 6s
+        maxListLength: 10s
+        minPrebufferLength: 6s
         deleteThresholdLength: 4s
         ffmpegArgs: >
             -i pipe:0
@@ -61,10 +58,8 @@ hls:
             -f hls
             -hls_time {hlsTime}
             -hls_list_size {hlsListSize}
-            -hls_delete_threshold {hlsDeleteThreshold}
             -hls_segment_type fmp4
             -hls_segment_filename %d.m4s
-            -hls_flags delete_segments
             {index}
 
 progressiveDownload:

@@ -1,31 +1,26 @@
-import path from "path";
 import Hapi from "hapi";
-import format from "string-format";
-import { logger, forget, getMimeType, readStream, delay, ScheduledFileReader, Timer } from "../base";
+import { logger, getMimeType } from "../base";
 import { HlsProfile } from "../config";
-import { FFmpeg, FFmpegWorker } from "../ffmpeg";
-import { Streaming } from "../streaming";
+import { FFmpeg } from "../ffmpeg";
+import { Streaming, StreamContext, StreamRequest } from "../streaming";
 import { Channel } from "../types";
-import { HLS_INDEX_PLAYLIST_NAME } from "./consts";
-import { parseIndexLength } from "./utils/parseIndexLength";
-import { tryReadFile } from "./utils/tryReadFile";
+import { HlsBuilder } from "./HlsBuilder";
 
 type InitResult = {
-    ffmpegWorker: FFmpegWorker;
+    streamContext: StreamContext;
+    streamRequest: StreamRequest;
+    builder: HlsBuilder;
 };
 
-const READ_FILE_HIGH_WATERMARK = 1 << 22;
-const READ_INDEX_FILE_HIGHWATERMARK = 1 << 20;
-
 class HlsStream {
-    onFinish: (() => void) | undefined;
+    onClosed: (() => void) | undefined;
 
     private readonly channel: Channel;
     private readonly profile: HlsProfile;
     private readonly ffmpeg: FFmpeg;
     private readonly streaming: Streaming;
-    private readonly idleTimer: Timer;
-    private readonly initResult$: Promise<InitResult | null>;
+    private isOpened: boolean;
+    private initResult$: Promise<InitResult | null> | null;
 
     constructor(
         channel: Channel,
@@ -37,13 +32,39 @@ class HlsStream {
         this.profile = profile;
         this.ffmpeg = ffmpeg;
         this.streaming = streaming;
+        this.isOpened = false;
+        this.initResult$ = null;
+    }
 
-        this.idleTimer = new Timer(profile.idleTimeout, async () => {
-            logger.debug(`HLS > ${channel.name} > idle timeout`);
-            forget(this.close());
-        });
+    open(): void {
+        if (this.isOpened) {
+            return;
+        }
 
+        this.isOpened = true;
         this.initResult$ = this.init();
+    }
+
+    async close(): Promise<void> {
+        if (!this.isOpened) {
+            return;
+        }
+
+        const initResult$ = this.initResult$;
+
+        this.isOpened = false;
+        this.initResult$ = null;
+
+        const initResult = await initResult$;
+
+        if (!initResult) {
+            return;
+        }
+
+        const { streamContext, streamRequest, builder } = initResult;
+
+        await builder.close();
+        streamContext.deleteRequest(streamRequest);
     }
 
     async handleRequest(
@@ -62,94 +83,17 @@ class HlsStream {
         }
 
         const mimeType = getMimeType(filename);
-        const filePath = path.join(initResult.ffmpegWorker.workingDirectory, filename);
-
-        let result;
-
-        switch (true) {
-            case filename === HLS_INDEX_PLAYLIST_NAME:
-                return this.readIndexFile(
-                    request,
-                    h,
-                    filePath,
-                    mimeType,
-                );
-            default:
-                return this.readFile(
-                    request,
-                    h,
-                    filePath,
-                    mimeType,
-                );
-        }
-    }
-
-    async close(): Promise<void> {
-        const initResult = await this.initResult$;
-
-        if (initResult) {
-            await initResult.ffmpegWorker.close();
-        }
-    }
-
-    private async init(): Promise<InitResult | null> {
-        logger.verbose(`HLS > ${this.channel.name} > init`);
-
-        const { stream, response$ } = await this.streaming.requestChannel(this.channel);
-        const response = await response$;
-
-        if (!response || response.status !== 200) {
-            return null;
-        }
-
-        const hlsTime = Math.ceil(this.profile.segmentLength / 1000);
-        const hlsListSize = Math.ceil(this.profile.maxIndexLength / 1000 / hlsTime);
-        const hlsDeleteThreshold = Math.ceil(this.profile.deleteThresholdLength / 1000 / hlsTime);
-
-        const ffmpegArgs = format(this.profile.ffmpegArgs, {
-            hlsTime,
-            hlsListSize,
-            hlsDeleteThreshold,
-            index: HLS_INDEX_PLAYLIST_NAME,
-        });
-
-        const ffmpegWorker = this.ffmpeg.createWorker();
-
-        ffmpegWorker.onFinish = () => {
-            stream.end();
-            this.idleTimer.stop();
-
-            if (this.onFinish) {
-                this.onFinish();
-            }
-        };
-
-        this.idleTimer.start();
-        forget(ffmpegWorker.run(ffmpegArgs, stream));
-
-        return {
-            ffmpegWorker,
-        };
-    }
-
-    private async readFile(
-        request: Hapi.Request,
-        h: Hapi.ResponseToolkit,
-        path: string,
-        mimeType: string | null,
-    ): Promise<Hapi.ResponseObject | symbol> {
-        this.idleTimer.reset();
-        const stream = await tryReadFile(path, READ_FILE_HIGH_WATERMARK);
+        const content = await initResult.builder.getResource(filename);
 
         if (!request.active()) {
             return h.close;
         }
 
-        if (!stream) {
+        if (content === null) {
             return h.response().code(404);
         }
 
-        let result = h.response(stream);
+        let result = h.response(content);
 
         if (mimeType) {
             result = result.type(mimeType);
@@ -158,59 +102,32 @@ class HlsStream {
         return result;
     }
 
-    private async readIndexFile(
-        request: Hapi.Request,
-        h: Hapi.ResponseToolkit,
-        path: string,
-        mimeType: string | null,
-    ): Promise<Hapi.ResponseObject | symbol> {
-        while (true) {
-            this.idleTimer.reset();
+    private async init(): Promise<InitResult | null> {
+        logger.verbose(`HLS > ${this.channel.name} > init`);
 
-            const reader = new ScheduledFileReader({
-                path,
-                timeout: this.profile.requestTimeout,
-                highWaterMark: READ_INDEX_FILE_HIGHWATERMARK,
-                onSchedule: () => this.idleTimer.reset(),
-            });
+        const streamContext = await this.streaming.getContext(this.channel);
+        const streamRequest = streamContext.createRequest();
+        const response = await streamRequest.response$;
 
-            const stream = await reader.read();
-
-            if (!request.active()) {
-                return h.close;
-            }
-
-            if (!stream) {
-                return h.response().code(404);
-            }
-
-            const buffer = await readStream(stream);
-
-            if (!request.active()) {
-                return h.close;
-            }
-
-            const content = buffer.toString();
-            const indexLength = parseIndexLength(content);
-
-            if (indexLength < this.profile.minIndexLength) {
-                await delay(250);
-
-                if (!request.active()) {
-                    return h.close;
-                }
-
-                continue;
-            }
-
-            let result = h.response(content);
-
-            if (mimeType) {
-                result = result.type(mimeType);
-            }
-
-            return result;
+        if (!response || response.status !== 200) {
+            return null;
         }
+
+        const builder = new HlsBuilder(
+            this.profile,
+            streamRequest.stream,
+            this.ffmpeg,
+            this.channel.name
+        );
+
+        builder.onClosed = async () => {
+            await this.close();
+            this.onClosed && this.onClosed();
+        };
+
+        await builder.open();
+
+        return { streamContext, streamRequest, builder };
     }
 }
 

@@ -1,6 +1,6 @@
 import * as Hapi from "hapi";
 import { logger, createSeqIdGenerator } from "../base";
-import { ProgressiveDownloadConfig } from "../config";
+import { ProgressiveConfig } from "../config";
 import { Streaming } from "../streaming";
 import { Channel } from "../types";
 import { ProgressiveClient } from "./ProgressiveClient";
@@ -8,14 +8,14 @@ import { ProgressiveClient } from "./ProgressiveClient";
 const generateClientId = createSeqIdGenerator();
 
 class Progressive {
-    private readonly progressiveDownloadConfig: ProgressiveDownloadConfig;
+    private readonly config: ProgressiveConfig;
     private readonly streaming: Streaming;
 
     constructor(
-        progressiveDownloadConfig: ProgressiveDownloadConfig,
+        config: ProgressiveConfig,
         streaming: Streaming,
     ) {
-        this.progressiveDownloadConfig = progressiveDownloadConfig;
+        this.config = config;
         this.streaming = streaming;
     }
 
@@ -25,13 +25,14 @@ class Progressive {
         channel: Channel,
     ): Promise<Hapi.ResponseObject | symbol> {
         try {
-            const requestResult = await this.streaming.requestChannel(channel);
+            const streamContext = await this.streaming.getContext(channel);
+            const streamRequest = streamContext.createRequest();
 
             const client = new ProgressiveClient(
                 request,
                 h,
-                this.progressiveDownloadConfig,
-                requestResult,
+                this.config,
+                streamRequest,
                 generateClientId().toString(),
                 channel.name,
             );

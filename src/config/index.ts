@@ -9,7 +9,7 @@ export {
     FFmpegConfig,
     HlsConfig,
     HlsProfile,
-    ProgressiveDownloadConfig,
+    ProgressiveConfig,
     TtvApiConfig,
     LoggerConfig,
     ChannelSourceConfig,

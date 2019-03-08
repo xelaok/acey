@@ -9,7 +9,7 @@ type RawMainConfig = {
     stream: RawStreamConfig;
     ffmpeg: RawFFmpegConfig;
     hls: RawHlsConfig;
-    progressiveDownload: RawProgressiveDownloadConfig;
+    progressive: RawProgressiveConfig;
     logger: RawLoginConfig;
 };
 
@@ -44,13 +44,14 @@ type RawHlsProfile = {
     idleTimeout: string;
     requestTimeout: string;
     segmentLength: string;
-    minIndexLength: string;
-    maxIndexLength: string;
+    minListLength: string;
+    maxListLength: string;
+    minPrebufferLength: string;
     deleteThresholdLength: string;
     ffmpegArgs: string;
 };
 
-type RawProgressiveDownloadConfig = {
+type RawProgressiveConfig = {
     clientIdleTimeout: string;
     clientMaxBufferLength: string;
     clientResetBufferLength: string;
@@ -96,7 +97,7 @@ type Config = {
     stream: StreamConfig;
     ffmpeg: FFmpegConfig;
     hls: HlsConfig;
-    progressiveDownload: ProgressiveDownloadConfig;
+    progressive: ProgressiveConfig;
     logger: LoggerConfig;
     groups: ChannelGroup[];
     groupsMap: Dict<ChannelGroup>;
@@ -137,13 +138,14 @@ type HlsProfile = {
     idleTimeout: number;
     requestTimeout: number;
     segmentLength: number;
-    minIndexLength: number;
-    maxIndexLength: number;
+    minListLength: number;
+    maxListLength: number;
+    minPrebufferLength: number;
     deleteThresholdLength: number;
     ffmpegArgs: string;
 };
 
-type ProgressiveDownloadConfig = {
+type ProgressiveConfig = {
     clientIdleTimeout: number;
     clientMaxBufferLength: number;
     clientResetBufferLength: number;
@@ -201,7 +203,7 @@ export {
     RawFFmpegConfig,
     RawHlsConfig,
     RawHlsProfile,
-    RawProgressiveDownloadConfig,
+    RawProgressiveConfig,
     RawTtvApiConfig,
     RawLoginConfig,
     RawChannelGroupConfig,
@@ -219,7 +221,7 @@ export {
     FFmpegConfig,
     HlsConfig,
     HlsProfile,
-    ProgressiveDownloadConfig,
+    ProgressiveConfig,
     TtvApiConfig,
     LoggerConfig,
     ChannelSourceConfig,

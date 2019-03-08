@@ -1,47 +1,43 @@
 import fs from "fs";
 import { Readable } from "stream";
+import { tryReadFile } from "./tryReadFile";
 
 type ScheduledFileReaderOptions = {
     path: string;
     timeout: number;
     highWaterMark: number;
-    onSchedule: () => void;
 };
 
 class ScheduledFileReader {
     private readonly path: string;
     private readonly timeout: number;
     private readonly highWaterMark: number;
-    private readonly onSchedule: () => void;
     private canceled: boolean = false;
     private readStartTime: number | undefined;
 
-    constructor({ path, timeout, highWaterMark, onSchedule }: ScheduledFileReaderOptions) {
+    constructor({ path, timeout, highWaterMark }: ScheduledFileReaderOptions) {
         this.path = path;
         this.timeout = timeout;
         this.highWaterMark = highWaterMark;
-        this.onSchedule = onSchedule;
     }
 
-    async read(): Promise<Readable | null> {
+    async read(): Promise<Buffer | null> {
         this.readStartTime = Date.now();
 
-        let stream = await this.tryRead();
+        let buffer = await tryReadFile(this.path, this.highWaterMark);
 
-        if (!stream) {
-            stream = await new Promise(resolve => this.scheduleRead(resolve));
+        if (!buffer) {
+            buffer = await new Promise(resolve => this.scheduleRead(resolve));
         }
 
-        return stream;
+        return buffer;
     }
 
     cancel(): void {
         this.canceled = true;
     }
 
-    private scheduleRead(resolve: (stream: Readable | null) => void): void {
-        this.onSchedule();
-
+    private scheduleRead(resolve: (buffer: Buffer | null) => void): void {
         global.setTimeout(async () => {
             if (this.canceled) {
                 resolve(null);
@@ -53,32 +49,15 @@ class ScheduledFileReader {
                 return;
             }
 
-            const stream = await this.tryRead();
+            const buffer = await tryReadFile(this.path, this.highWaterMark);
 
-            if (!stream) {
-                this.scheduleRead(resolve);
+            if (buffer) {
+                resolve(buffer);
                 return;
             }
 
-            resolve(stream);
-        }, 250);
-    }
-
-    private tryRead(): Promise<Readable | null> {
-        return new Promise(resolve => {
-            fs.access(this.path, fs.constants.R_OK, err => {
-                if (err) {
-                    resolve(null);
-                    return;
-                }
-
-                resolve(
-                    fs.createReadStream(this.path, {
-                        highWaterMark: this.highWaterMark,
-                    }),
-                );
-            });
-        });
+            this.scheduleRead(resolve);
+        }, 100);
     }
 }
 

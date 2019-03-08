@@ -1,17 +1,17 @@
 import * as Hapi from "hapi";
 import { Headers } from "node-fetch";
 import { logger, Timer } from "../base";
-import { ProgressiveDownloadConfig } from "../config";
+import { ProgressiveConfig } from "../config";
 import { ProgressiveClientBuffer } from "./ProgressiveClientBuffer";
-import { StreamRequestResult } from "../streaming";
+import { StreamRequest } from "../streaming";
 
 class ProgressiveClient {
     response$: Promise<Hapi.ResponseObject | symbol>;
 
     private readonly request: Hapi.Request;
     private readonly h: Hapi.ResponseToolkit;
-    private readonly config: ProgressiveDownloadConfig;
-    private readonly requestResult: StreamRequestResult;
+    private readonly config: ProgressiveConfig;
+    private readonly streamRequest: StreamRequest;
     private readonly clientAlias: string;
     private readonly streamAlias: string;
     private readonly buffer: ProgressiveClientBuffer;
@@ -22,15 +22,15 @@ class ProgressiveClient {
     constructor(
         request: Hapi.Request,
         h: Hapi.ResponseToolkit,
-        config: ProgressiveDownloadConfig,
-        requestResult: StreamRequestResult,
+        config: ProgressiveConfig,
+        streamRequest: StreamRequest,
         clientAlias: string,
         streamAlias: string,
     ) {
         this.request = request;
         this.h = h;
         this.config = config;
-        this.requestResult = requestResult;
+        this.streamRequest = streamRequest;
         this.clientAlias = clientAlias;
         this.streamAlias = streamAlias;
 
@@ -85,7 +85,7 @@ class ProgressiveClient {
             this.close();
         });
 
-        this.response$ = this.requestResult.response$.then(response => {
+        this.response$ = this.streamRequest.response$.then(response => {
             if (!this.request.active()) {
                 return this.h.close;
             }
@@ -100,7 +100,7 @@ class ProgressiveClient {
             this.writeHeaders(response.headers);
             this.handleWriteOnDrain();
 
-            this.requestResult.stream.on("data", chunk => {
+            this.streamRequest.stream.on("data", chunk => {
                 if (this.active && this.flushed && this.buffer.isEmpty) {
                     this.writeResponse(chunk);
                 }
@@ -109,11 +109,11 @@ class ProgressiveClient {
                 }
             });
 
-            this.requestResult.stream.on("close", () => {
+            this.streamRequest.stream.on("close", () => {
                 this.close();
             });
 
-            this.requestResult.stream.on("finish", () => {
+            this.streamRequest.stream.on("finish", () => {
                 this.close();
             });
 
@@ -124,7 +124,7 @@ class ProgressiveClient {
     private close(): void {
         this.idleTimer.stop();
         this.request.raw.res.destroy();
-        this.requestResult.stream.end();
+        this.streamRequest.stream.end();
     }
 
     private writeHeaders(streamResponseHeaders: Headers): void {

@@ -1,3 +1,4 @@
+import { Readable } from "stream";
 import { FFmpegConfig } from "../config";
 import { FFmpegWorker } from "./FFmpegWorker";
 
@@ -8,8 +9,8 @@ class FFmpeg {
         this.ffmpegConfig = ffmpegConfig;
     }
 
-    createWorker(): FFmpegWorker {
-        return new FFmpegWorker(this.ffmpegConfig);
+    createWorker(args: string, input: Readable, alias: string): FFmpegWorker {
+        return new FFmpegWorker(this.ffmpegConfig, args, input, alias);
     }
 }
 

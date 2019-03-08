@@ -2,7 +2,7 @@ import * as Hapi from "hapi";
 import { HlsConfig } from "../config";
 import { FFmpeg } from "../ffmpeg";
 import { Streaming } from "../streaming";
-import { Channel, ChannelSource } from "../types";
+import { Channel } from "../types";
 import { HlsStream } from "./HlsStream";
 
 class Hls {
@@ -28,52 +28,48 @@ class Hls {
         profileName: string,
         filename: string,
     ): Promise<Hapi.ResponseObject | symbol> {
-        const profile = this.hlsConfig[profileName];
+        const stream = this.resolveStream(channel, profileName);
 
-        if (!profile) {
+        if (!stream) {
             return h.response().code(404);
         }
 
-        const id = formatStreamId(channel, profileName);
+        return stream.handleRequest(request, h, filename);
+    }
 
-        let hlsStream = this.streams.get(id);
+    async close(): Promise<void> {
+        this.streams.forEach(s => s.close());
+        this.streams.clear();
+    }
 
-        if (!hlsStream) {
-            const newHlsStream = new HlsStream(
+    private resolveStream(channel: Channel, profileName: string): HlsStream | null {
+        const profile = this.hlsConfig[profileName];
+
+        if (!profile) {
+            return null;
+        }
+
+        const id = `${channel.source}-${channel.id}-${profileName}`;
+
+        let stream = this.streams.get(id);
+
+        if (!stream) {
+            stream = new HlsStream(
                 channel,
                 profile,
                 this.ffmpeg,
                 this.streaming,
             );
 
-            this.streams.set(id, newHlsStream);
-
-            newHlsStream.onFinish = () => {
+            stream.onClosed = () => {
                 this.streams.delete(id);
             };
 
-            hlsStream = newHlsStream;
+            stream.open();
+            this.streams.set(id, stream);
         }
 
-        return hlsStream.handleRequest(request, h, filename);
-    }
-
-    async close(): Promise<void> {
-        const streams = Array.from(this.streams.values());
-        this.streams.clear();
-
-        await Promise.all(streams.map(s => s.close()));
-    }
-}
-
-function formatStreamId(channel: Channel, profileName: string): string {
-    switch (channel.source) {
-        case ChannelSource.Ace:
-            return `ace-${channel.id}-${profileName}`;
-        case ChannelSource.Ttv:
-            return `ttv-${channel.id}-${profileName}`;
-        default:
-            throw new Error(`Unknown channel source type.`);
+        return stream;
     }
 }
 

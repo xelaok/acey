@@ -4,7 +4,7 @@ import { logger, forget, stopWatch, Timer } from "../base";
 import { AceApi, AceStreamSource, AceStreamInfo } from "../ace-api";
 import { StreamConfig } from "../config";
 import { StreamContextSharedBuffer } from "./StreamContextSharedBuffer";
-import { StreamRequestResult } from "./types";
+import { StreamRequest } from "./types";
 
 class StreamContext {
     response$: Promise<Response | null> | undefined;
@@ -14,11 +14,11 @@ class StreamContext {
     private readonly source: AceStreamSource;
     private readonly alias: string;
     private readonly aceApi: AceApi;
-    private readonly clientStreams: Set<PassThrough> = new Set();
+    private readonly requests: Set<StreamRequest>;
     private readonly sharedBuffer: StreamContextSharedBuffer;
     private readonly idleTimer: Timer;
     private info: AceStreamInfo;
-    private isStopScheduled: boolean = false;
+    private isStopScheduled: boolean;
 
     constructor(
         streamConfig: StreamConfig,
@@ -32,11 +32,13 @@ class StreamContext {
         this.info = info;
         this.alias = alias;
         this.aceApi = aceApi;
+        this.requests = new Set();
         this.sharedBuffer = new StreamContextSharedBuffer(streamConfig.sharedBufferLength);
+        this.isStopScheduled = false;
 
         this.idleTimer = new Timer(streamConfig.responseTimeout, () => {
-            logger.debug(`${this.alias} > response > idle timeout`);
-            this.closeAllClientStreams();
+            logger.debug(`Stream > ${this.alias} > response > idle timeout`);
+            this.endAllRequests();
         });
     }
 
@@ -56,31 +58,45 @@ class StreamContext {
         await this.stopStream();
     }
 
-    request(): StreamRequestResult {
+    createRequest(): StreamRequest {
         if (!this.response$) {
             throw new Error("Can't create a request for a non-open stream.");
         }
 
         const stream = new PassThrough();
 
-        this.addClientStream(stream);
+        const request = {
+            stream,
+            response$: this.response$,
+        };
+
+        this.requests.add(request);
 
         stream.on("close", () => {
-            this.removeClientStream(stream);
+            this.deleteRequest(request);
         });
 
         stream.on("finish", () => {
-            this.removeClientStream(stream);
+            this.deleteRequest(request);
         });
 
         for (const chunk of this.sharedBuffer.chunks) {
             stream.write(chunk);
         }
 
-        return {
-            stream,
-            response$: this.response$,
-        };
+        return request;
+    }
+
+    deleteRequest(request: StreamRequest): void {
+        if (!this.requests.has(request)) {
+            return;
+        }
+
+        this.requests.delete(request);
+
+        if (this.requests.size === 0) {
+            this.scheduleStopStream(this.streamConfig.stopDelay);
+        }
     }
 
     updateInfo(info: AceStreamInfo): void {
@@ -88,6 +104,10 @@ class StreamContext {
     }
 
     private async initResponse(): Promise<Response | null> {
+        let totalLength = 0;
+        let startTime: number | null = null;
+        let maxSpeed = 0;
+
         const response = await this.requestStream();
 
         if (!response) {
@@ -97,15 +117,29 @@ class StreamContext {
         this.idleTimer.start();
 
         response.body.on("data", chunk => {
+            if (!startTime) {
+                startTime = Date.now();
+            }
+
+            totalLength += chunk.length;
+
+            const time = Date.now() - startTime;
+            const speed = totalLength / (time / 1000);
+
+            if (Number.isFinite(speed) && totalLength > 1024 * 1024 && speed > maxSpeed) {
+                maxSpeed = speed;
+                // logger.silly(`Stream > totalLength: ${(totalLength / 1024 / 1024).toFixed(2)} MiB, ${(time / 1000).toFixed(1)} s, ${(speed / 1024 / 1024).toFixed(2)} MiB/s`);
+            }
+
             this.idleTimer.reset();
 
-            for (const stream of this.clientStreams) {
+            for (const r of this.requests) {
                 try {
-                    stream.write(chunk);
+                    r.stream.write(chunk);
                 }
                 catch (err) {
-                    logger.silly(`${this.alias} > response > stream write > ${err}`);
-                    this.removeClientStream(stream);
+                    logger.silly(`Stream > ${this.alias} > response > stream write > ${err}`);
+                    this.deleteRequest(r);
                 }
             }
 
@@ -113,50 +147,41 @@ class StreamContext {
         });
 
         response.body.on("error", (err) => {
-            logger.debug(`${this.alias} > response > error`);
+            logger.debug(`Stream > ${this.alias} > response > error`);
             logger.warn(`- ${err.message}`);
         });
 
         response.body.on("close", () => {
-            logger.debug(`${this.alias} > response > closed`);
+            logger.debug(`Stream > ${this.alias} > response > closed`);
 
             this.idleTimer.stop();
             this.response$ = undefined;
 
-            this.closeAllClientStreams();
+            this.endAllRequests();
         });
 
         response.body.on("finish", () => {
-            logger.debug(`${this.alias} > response > finished`);
+            logger.debug(`Stream > ${this.alias} > response > finished`);
 
             this.idleTimer.stop();
             this.response$ = undefined;
 
-            this.closeAllClientStreams();
+            this.endAllRequests();
         });
 
         return response;
     }
 
-    private addClientStream(stream: PassThrough): void {
-        this.clientStreams.add(stream);
-    }
+    private endAllRequests(): void {
+        const requests = Array.from(this.requests.values());
 
-    private removeClientStream(stream: PassThrough): void {
-        this.clientStreams.delete(stream);
-
-        if (this.clientStreams.size === 0) {
-            this.scheduleStopStream(this.streamConfig.stopDelay);
+        for (const r of requests) {
+            r.stream.end();
         }
     }
 
-    private closeAllClientStreams(): void {
-        const streams = Array.from(this.clientStreams.values());
-        streams.forEach(s => s.end());
-    }
-
     private async requestStream(): Promise<Response | null> {
-        logger.debug(`${this.alias} > content ..`);
+        logger.debug(`Stream > ${this.alias} > content ..`);
         try {
             const requestInit = {
                 timeout: this.streamConfig.requestTimeout,
@@ -166,14 +191,14 @@ class StreamContext {
                 return this.aceApi.getStream(this.info, requestInit);
             });
 
-            logger.debug(`${this.alias} > content > response`);
+            logger.debug(`Stream > ${this.alias} > content > response`);
             logger.debug(`- status: ${response.status} (${response.statusText})`);
             logger.debug(`- request time: ${timeText}`);
 
             return response;
         }
         catch (err) {
-            logger.debug(`${this.alias} > content > failed`);
+            logger.debug(`Stream > ${this.alias} > content > failed`);
 
             if (err instanceof FetchError) {
                 logger.debug(`- ${err.message}`);
@@ -195,13 +220,13 @@ class StreamContext {
             return;
         }
 
-        logger.debug(`${this.alias} > schedule stop`);
+        logger.debug(`Stream > ${this.alias} > schedule stop`);
         this.isStopScheduled = true;
 
         global.setTimeout(
             () => {
-                if (this.clientStreams.size !== 0) {
-                    logger.debug(`${this.alias} > schedule stop > canceled`);
+                if (this.requests.size !== 0) {
+                    logger.debug(`Stream > ${this.alias} > schedule stop > canceled`);
                     this.isStopScheduled = false;
                     return;
                 }
@@ -213,13 +238,13 @@ class StreamContext {
     }
 
     private async stopStream(): Promise<void> {
-        logger.debug(`${this.alias} > stop ..`);
+        logger.debug(`Stream > ${this.alias} > stop ..`);
 
         const { timeText, result: response } = await stopWatch(() => {
             return this.aceApi.stopStream(this.info);
         });
 
-        logger.debug(`${this.alias} > stop > response`);
+        logger.debug(`Stream > ${this.alias} > stop > response`);
         logger.debug(`- status: ${response.status} (${response.statusText})`);
         logger.debug(`- request time: ${timeText}`);
     }

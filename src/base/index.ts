@@ -19,6 +19,7 @@ export * from "./splitLines";
 export * from "./stopWatch";
 export * from "./types";
 export * from "./Timer";
+export * from "./tryReadFile";
 export * from "./tryResolveSync";
 export * from "./unit-util";
 

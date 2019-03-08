@@ -5,7 +5,6 @@ import { AceApi, AceStreamSource, AceStreamInfo } from "../ace-api";
 import { TtvApi } from "../ttv-api";
 import { Channel, ChannelSource, AceChannel } from "../types";
 import { StreamContext } from "./StreamContext";
-import { StreamRequestResult } from "./types";
 
 class Streaming {
     private readonly config: StreamConfig;
@@ -20,10 +19,9 @@ class Streaming {
         this.ttvApi = ttvApi;
     }
 
-    async requestChannel(channel: Channel): Promise<StreamRequestResult> {
+    async getContext(channel: Channel): Promise<StreamContext> {
         const source = await this.resolveSource(channel);
-        const context = await this.resolveContext(source, channel.name);
-        return context.request();
+        return this.resolveContext(source, channel.name);
     }
 
     async close(): Promise<void> {
@@ -84,13 +82,13 @@ class Streaming {
         source: AceStreamSource,
         alias: string,
     ): Promise<AceStreamInfo> {
-        logger.debug(`${alias} > info ..`);
+        logger.debug(`Stream > ${alias} > info ..`);
 
         const { timeText, result } = await stopWatch(() => {
             return this.aceApi.getStreamInfo(source, nanoid());
         });
 
-        logger.debug(`${alias} > info > response`);
+        logger.debug(`Stream > ${alias} > info > response`);
         logger.debug(`- request time: ${timeText}`);
 
         return result;

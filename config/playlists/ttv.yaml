@@ -1,0 +1,4 @@
+filter: ~
+format: default
+protocol: progressive
+channelSources: ttv

@@ -4,8 +4,7 @@
     "private": true,
     "scripts": {
         "dist": "npm run build && npm run prune",
-        "start": "node build/prod",
-        "start-dev": "node build/dev",
+        "start": "node .",
         "build": "webpack --env.buildMode=production --progress --color --display=errors-only",
         "build-debug": "webpack --env.buildMode=debug --progress --color ",
         "watch-debug": "webpack --env.buildMode=debug --progress --color -w",
@@ -28,7 +27,6 @@
         "@types/node-cleanup": "2.1.0",
         "@types/node-fetch": "2.1.6",
         "@types/qs": "6.5.1",
-        "@types/stream-to-array": "2.3.0",
         "@types/string-format": "2.0.0",
         "@types/url-join": "4.0.0",
         "@types/winston": "2.4.4",
@@ -52,7 +50,6 @@
         "node-cleanup": "2.1.2",
         "node-fetch": "2.3.0",
         "qs": "6.6.0",
-        "stream-to-array": "2.3.0",
         "string-format": "2.0.0",
         "url-join": "4.0.0",
         "winston": "3.2.1"

@@ -57,8 +57,8 @@ async function main(): Promise<void> {
         ttvApi,
     );
 
-    const progressiveDownload = new Progressive(
-        config.progressiveDownload,
+    const progressive = new Progressive(
+        config.progressive,
         streaming,
     );
 
@@ -74,7 +74,7 @@ async function main(): Promise<void> {
         config.playlists,
         channelRepository,
         channelSources,
-        progressiveDownload,
+        progressive,
         hls,
     );
 

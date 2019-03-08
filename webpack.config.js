@@ -7,11 +7,7 @@ const pkg = require("./package.json");
 
 module.exports = function ({ buildMode }) {
     console.log(`build mode: ${buildMode}`);
-
-    const buildConfig = getBuildConfig(buildMode);
-    const config = getConfig(buildConfig);
-
-    return config;
+    return getConfig(getBuildConfig(buildMode));
 }
 
 function getConfig(buildConfig) {
@@ -33,13 +29,13 @@ function getConfig(buildConfig) {
             filename: "[name].js",
         },
         resolve: {
-            extensions: [".js", ".ts", ".tsx"],
+            extensions: [".js", ".ts"],
             alias: {},
         },
         module: {
             rules: [
                 {
-                    test: /\.tsx?$/,
+                    test: /\.ts$/,
                     exclude: /node_modules/,
                     use: [
                         {
@@ -72,7 +68,7 @@ function getConfig(buildConfig) {
             usedExports: true,
             sideEffects: true,
         },
-        plugins: defineList([
+        plugins: [
             new CleanPlugin(
                 [buildPath],
                 { verbose: false }
@@ -80,10 +76,6 @@ function getConfig(buildConfig) {
             new webpack.DefinePlugin({
                 "process.env.appPackage": JSON.stringify(pkg),
             }),
-        ]),
+        ],
     };
-}
-
-function defineList(list) {
-    return list.filter(x => !!x);
 }

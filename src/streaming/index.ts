@@ -1,2 +1,3 @@
 export * from "./Streaming";
-export { StreamRequestResult } from "./types";
+export * from "./StreamContext";
+export { StreamRequest } from "./types";

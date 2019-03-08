@@ -14,7 +14,7 @@ import {
     PlaylistConfig,
     PlaylistFilterConfig,
     PlaylistFormatConfig,
-    ProgressiveDownloadConfig,
+    ProgressiveConfig,
     RawAceUrlChannelSourceConfig,
     RawFFmpegConfig,
     RawChannelGroupConfig,
@@ -24,7 +24,7 @@ import {
     RawPlaylistConfig,
     RawPlaylistFilterConfig,
     RawPlaylistFormatConfig,
-    RawProgressiveDownloadConfig,
+    RawProgressiveConfig,
     RawServerConfig,
     RawChannelSourceConfig,
     RawStreamConfig,
@@ -80,7 +80,7 @@ async function readConfig(): Promise<Config> {
         stream: parseStreamConfig(rawConfig.stream),
         ffmpeg: parseFfmpegConfig(rawConfig.ffmpeg, vmemTempDir),
         hls: parseHlsConfig(rawConfig.hls),
-        progressiveDownload: parseProgressiveDownloadConfig(rawConfig.progressiveDownload),
+        progressive: parseProgressiveConfig(rawConfig.progressive),
         ttvApi: rawConfig.ttvApi,
         logger: rawConfig.logger,
         groups,
@@ -274,14 +274,15 @@ function parseHlsProfile(raw: RawHlsProfile): HlsProfile {
         idleTimeout: parseDuration(raw.idleTimeout),
         requestTimeout: parseDuration(raw.requestTimeout),
         segmentLength: parseDuration(raw.segmentLength),
-        maxIndexLength: parseDuration(raw.maxIndexLength),
-        minIndexLength: parseDuration(raw.minIndexLength),
+        minListLength: parseDuration(raw.minListLength),
+        maxListLength: parseDuration(raw.maxListLength),
+        minPrebufferLength: parseDuration(raw.minPrebufferLength),
         deleteThresholdLength: parseDuration(raw.deleteThresholdLength),
         ffmpegArgs: raw.ffmpegArgs.trim(),
     };
 }
 
-function parseProgressiveDownloadConfig(raw: RawProgressiveDownloadConfig): ProgressiveDownloadConfig {
+function parseProgressiveConfig(raw: RawProgressiveConfig): ProgressiveConfig {
     return {
         ...raw,
         clientIdleTimeout: parseDuration(raw.clientIdleTimeout),

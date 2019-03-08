@@ -1,9 +1,9 @@
 import { PassThrough } from "stream";
 import { Response } from "node-fetch";
 
-type StreamRequestResult = {
+type StreamRequest = {
     stream: PassThrough;
     response$: Promise<Response | null>;
 };
 
-export { StreamRequestResult }
+export { StreamRequest }

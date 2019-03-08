@@ -2,128 +2,132 @@ import path from "path";
 import { Readable } from "stream";
 import { spawn, ChildProcess } from "child_process";
 import fse from "fs-extra";
-import { logger, forget, getRandomIdGenerator, splitLines, ChildProcessHelper } from "../base";
+import { logger, delay, getRandomIdGenerator, splitLines, ChildProcessHelper } from "../base";
 import { FFmpegConfig } from "../config";
 
 const generateTempId = getRandomIdGenerator(62, 32);
 
 class FFmpegWorker {
     workingDirectory: string;
-    onFinish: (() => void) | undefined;
+    onClosed: (() => void) | undefined;
 
-    private readonly ffmpegConfig: FFmpegConfig;
-    private isExecuting: boolean = false;
-    private ffmpegProcess: ChildProcess | undefined;
-    private ffmpegProcessHelper: ChildProcessHelper | undefined;
+    private readonly config: FFmpegConfig;
+    private readonly args: string;
+    private readonly input: Readable;
+    private readonly alias: string;
+    private isOpened: boolean;
+    private process: ChildProcess | undefined;
+    private processHelper: ChildProcessHelper | undefined;
+    private processExitListener: (() => void) | undefined;
 
-    constructor(ffmpegConfig: FFmpegConfig) {
-        this.ffmpegConfig = ffmpegConfig;
-        this.workingDirectory = path.join(this.ffmpegConfig.outPath, "acey-ffmpeg-" + generateTempId());
+    constructor(config: FFmpegConfig, args: string, input: Readable, alias: string) {
+        this.config = config;
+        this.args = args;
+        this.input = input;
+        this.alias = alias;
+        this.isOpened = false;
+        this.workingDirectory = path.join(this.config.outPath, "acey-ffmpeg-" + generateTempId());
     }
 
-    async run(args: string, input: Readable): Promise<void> {
-        if (this.isExecuting) {
+    async open(): Promise<void> {
+        if (this.isOpened) {
             return;
         }
 
-        this.isExecuting = true;
+        this.isOpened = true;
 
         await this.createWorkingDirectory();
+        await this.openProcess();
+    }
 
-        if (this.ffmpegConfig.logOutput) {
-            logger.debug(`ffmpeg > args: ${args}`);
+    async close(): Promise<void> {
+        if (!this.isOpened) {
+            return;
         }
 
-        const ffmpegProcess = spawn(
-            this.ffmpegConfig.binPath,
-            args.split(" "),
+        this.isOpened = false;
+
+        await this.killProcess();
+        await this.removeWorkingDirectory();
+    }
+
+    private async openProcess(): Promise<void> {
+        logger.debug(`ffmpeg > ${this.alias} > args: ${this.args}`);
+
+        const process = spawn(
+            this.config.binPath,
+            this.args.split(" "),
             {
                 cwd: this.workingDirectory,
                 windowsHide: true,
             },
         );
 
-        const ffmpegProcessHelper = new ChildProcessHelper(ffmpegProcess);
+        const processHelper = new ChildProcessHelper(process);
 
-        this.ffmpegProcess = ffmpegProcess;
-        this.ffmpegProcessHelper = ffmpegProcessHelper;
+        const processExitListener = async () => {
+            logger.debug(`ffmpeg > ${this.alias} > exit`);
+            await this.close();
+            this.onClosed && this.onClosed();
+        };
 
-        ffmpegProcess.stderr.on("data", data => {
-            if (!this.ffmpegConfig.logOutput) {
+        process.stderr.on("data", data => {
+            if (!this.config.logOutput) {
                 return;
             }
 
             const lines = splitLines(data.toString(), true, true);
 
             for (const line of lines) {
-                logger.debug(`ffmpeg > ${line}`);
+                logger.debug(`ffmpeg > ${this.alias} > ${line}`);
             }
         });
 
-        ffmpegProcess.on("exit", () => {
-            logger.debug("ffmpeg > exit");
+        process.on("exit", processExitListener);
 
-            if (!this.isExecuting) {
-                return;
-            }
-
-            this.isExecuting = false;
-            this.ffmpegProcess = undefined;
-            this.ffmpegProcessHelper = undefined;
-
-            forget(this.removeWorkingDirectory());
-
-            if (this.onFinish) {
-                this.onFinish();
-            }
+        process.stdin.on("error", (err) => {
+            logger.silly(`ffmpeg > ${this.alias} > stdin > ${err}`);
         });
 
-        ffmpegProcess.stdin.on("error", (err) => {
-            logger.silly(`ffmpeg > stdin > ${err}`);
+        process.stdout.on("error", (err) => {
+            logger.silly(`ffmpeg > ${this.alias} > stdout > ${err}`);
         });
 
-        ffmpegProcess.stdout.on("error", (err) => {
-            logger.silly(`ffmpeg > stdout > ${err}`);
-        });
+        this.input.pipe(process.stdin);
 
-        input.pipe(ffmpegProcess.stdin);
+        this.process = process;
+        this.processHelper = processHelper;
+        this.processExitListener = processExitListener;
     }
 
-    async close(): Promise<void> {
-        if (!this.isExecuting) {
+    private async killProcess(): Promise<void> {
+        if (!this.process || !this.processHelper || !this.processExitListener) {
             return;
         }
 
-        const ffmpegProcess = this.ffmpegProcess;
-        const ffmpegProcessHelper = this.ffmpegProcessHelper;
+        logger.debug(`ffmpeg > ${this.alias} > kill`);
 
-        this.isExecuting = false;
-        this.ffmpegProcess = undefined;
-        this.ffmpegProcessHelper = undefined;
+        const process = this.process;
+        const processHelper = this.processHelper;
+        const processExitListener = this.processExitListener;
 
-        if (ffmpegProcess && !ffmpegProcess.killed) {
-            logger.debug("ffmpeg > kill");
-            ffmpegProcess.kill("SIGKILL");
-        }
+        this.process = undefined;
+        this.processHelper = undefined;
+        this.processExitListener = undefined;
 
-        if (ffmpegProcessHelper) {
-            await ffmpegProcessHelper.waitExit();
-        }
+        process.removeListener("exit", processExitListener);
+        process.kill("SIGKILL");
 
-        await this.removeWorkingDirectory();
-
-        if (this.onFinish) {
-            this.onFinish();
-        }
+        await processHelper.waitExit();
     }
 
     private async createWorkingDirectory(): Promise<void> {
-        logger.debug("ffmpeg > create dir: " + this.workingDirectory);
+        logger.debug(`ffmpeg > ${this.alias} > create dir ${this.workingDirectory}`);
         await fse.mkdirp(this.workingDirectory);
     }
 
     private async removeWorkingDirectory(): Promise<void> {
-        logger.debug("ffmpeg > remove dir: " + this.workingDirectory);
+        logger.debug(`ffmpeg > ${this.alias} > remove dir ${this.workingDirectory}`);
         await fse.remove(this.workingDirectory);
     }
 }
