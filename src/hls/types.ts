@@ -1,16 +1,16 @@
-type HlsIndex = {
-    tags: HlsTag[];
-    segments: HlsSegment[];
+type HlsPlaylist = {
+    tags: HlsPlaylistTag[];
+    segments: HlsPlaylistSegment[];
 };
 
-type HlsTag = {
+type HlsPlaylistTag = {
     name: string;
     value: string;
 };
 
-type HlsSegment = {
+type HlsPlaylistSegment = {
     name: string;
     length: number;
 };
 
-export { HlsIndex, HlsTag, HlsSegment }
+export { HlsPlaylist, HlsPlaylistTag, HlsPlaylistSegment }

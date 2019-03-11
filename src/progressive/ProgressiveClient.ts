@@ -1,6 +1,6 @@
 import * as Hapi from "hapi";
 import { Headers } from "node-fetch";
-import { logger, Timer } from "../base";
+import { createLogger, Logger, Timer } from "../base";
 import { ProgressiveConfig } from "../config";
 import { ProgressiveClientBuffer } from "./ProgressiveClientBuffer";
 import { StreamRequest } from "../streaming";
@@ -12,8 +12,7 @@ class ProgressiveClient {
     private readonly h: Hapi.ResponseToolkit;
     private readonly config: ProgressiveConfig;
     private readonly streamRequest: StreamRequest;
-    private readonly clientAlias: string;
-    private readonly streamAlias: string;
+    private readonly logger: Logger;
     private readonly buffer: ProgressiveClientBuffer;
     private readonly idleTimer: Timer;
     private active: boolean
@@ -31,8 +30,7 @@ class ProgressiveClient {
         this.h = h;
         this.config = config;
         this.streamRequest = streamRequest;
-        this.clientAlias = clientAlias;
-        this.streamAlias = streamAlias;
+        this.logger = createLogger(c => c`{magenta Progressive > ${streamAlias} > client ${clientAlias}}`);
 
         this.active = false;
         this.flushed = true;
@@ -47,7 +45,7 @@ class ProgressiveClient {
         this.idleTimer = new Timer(
             this.config.clientIdleTimeout,
             () => {
-                logger.debug(`${this.streamAlias} > client ${this.clientAlias} > idle timeout`);
+                this.logger.debug(`idle timeout`);
                 this.request.raw.res.destroy();
             },
         );
@@ -58,30 +56,32 @@ class ProgressiveClient {
             return;
         }
 
-        logger.debug(`${this.streamAlias} > client ${this.clientAlias} > init`);
+        this.logger.debug(`init`);
 
         this.request.raw.res.on("error", (err) => {
-            logger.debug(`${this.streamAlias} > client ${this.clientAlias} > response error`);
-            logger.debug(`- ${err.message}`);
+            this.logger.debug(`response error`, [
+                c => c`{white ${err.message}}`,
+            ]);
         });
 
         this.request.raw.res.on("close", () => {
-            logger.debug(`${this.streamAlias} > client ${this.clientAlias} > response closed`);
+            this.logger.debug(`response closed`);
             this.close();
         });
 
         this.request.raw.res.on("finish", () => {
-            logger.debug(`${this.streamAlias} > client ${this.clientAlias} > response finished`);
+            this.logger.debug(`response finished`);
             this.close();
         });
 
         this.request.raw.req.on("error", (err) => {
-            logger.debug(`${this.streamAlias} > client ${this.clientAlias} > request error`);
-            logger.debug(`- ${err.message}`);
+            this.logger.debug(`request error`, [
+                c => c`{white ${err.message}}`,
+            ]);
         });
 
         this.request.raw.req.on("close", () => {
-            logger.debug(`${this.streamAlias} > client ${this.clientAlias} > request closed`);
+            this.logger.debug(`request closed`);
             this.close();
         });
 
@@ -122,6 +122,7 @@ class ProgressiveClient {
     }
 
     private close(): void {
+        this.logger.debug(`close`);
         this.idleTimer.stop();
         this.request.raw.res.destroy();
         this.streamRequest.stream.end();

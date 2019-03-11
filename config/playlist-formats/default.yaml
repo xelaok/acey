@@ -1,6 +1,6 @@
-useExtGrp: yes
-useTvgNameAttr: yes
-useTvgLogoAttr: yes
-useGroupTitleAttr: yes
-includeGroupName: no
-includeSourceLabel: no
+useExtGrp: Y
+useTvgNameAttr: Y
+useTvgLogoAttr: Y
+useGroupTitleAttr: Y
+includeGroupName: N
+includeSourceLabel: N

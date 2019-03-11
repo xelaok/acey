@@ -1,4 +1,4 @@
-import { Dict, forget, logger } from "../../base";
+import { logger, createLogger, forget, Logger, Dict } from "../../base";
 import { ChannelGroup, Channel, ChannelSource, TtvChannel } from "../../types";
 import { ChannelRepository } from "../../channel-repository";
 import { AppData } from "../../app-data";
@@ -11,6 +11,7 @@ class TtvSourceWorker implements ChannelSourceWorker {
     private readonly appData: AppData;
     private readonly groupsMap: Dict<ChannelGroup>;
     private readonly ttvApi: TtvApi;
+    private readonly logger: Logger;
     private timeout: NodeJS.Timeout | null = null;
     private isRunning: boolean = false;
     private lastFetched: number | null = null;
@@ -27,6 +28,7 @@ class TtvSourceWorker implements ChannelSourceWorker {
         this.appData = appData;
         this.groupsMap = groupsMap;
         this.ttvApi = ttvApi;
+        this.logger = createLogger(c => c`{white TTV Source}`);
     }
 
     async open(): Promise<void> {
@@ -98,7 +100,7 @@ class TtvSourceWorker implements ChannelSourceWorker {
     private async load(): Promise<void> {
         const lastFetched = Date.now();
 
-        logger.debug("TTV Source > load ..");
+        this.logger.debug("load ..");
         try {
             const [
                 rawChannels,
@@ -128,11 +130,10 @@ class TtvSourceWorker implements ChannelSourceWorker {
             }
 
             this.channelRepository.updateTtvChannels(channels);
-
-            logger.debug(`TTV Source > load > success (${channels.length} channels)`);
+            this.logger.debug(c => c`load > success ({bold ${channels.length.toString()}} channels)`);
         }
         catch (error) {
-            logger.debug(`TTV Source > load > failed > ${error.stack}`);
+            this.logger.debug(`load > failed > ${error.stack}`);
         }
         finally {
             this.lastFetched = lastFetched;

@@ -4,7 +4,7 @@ import { CRLF } from "../base";
 import { ChannelGroup, ChannelSource, StreamProtocol } from "../types";
 import { PlaylistFilterConfig, PlaylistFormatConfig } from "../config";
 import { ChannelSourceInfo } from "../channel-sources";
-import { HLS_INDEX_PLAYLIST_NAME } from "../hls";
+import { HLS_PLAYLIST_NAME } from "../hls";
 
 function buildPlaylist(
     basePath: string,
@@ -60,7 +60,7 @@ function buildPlaylist(
                 result += urlJoin(basePath, `s/${getStreamTypePath(si)}/${si.channel.id}.ts`);
                 break;
             case StreamProtocol.Hls:
-                result += urlJoin(basePath, `s/${getStreamTypePath(si)}/${si.channel.id}/hls/${streamProtoProfile}/${HLS_INDEX_PLAYLIST_NAME}`);
+                result += urlJoin(basePath, `s/${getStreamTypePath(si)}/${si.channel.id}/hls/${streamProtoProfile}/${HLS_PLAYLIST_NAME}`);
                 break;
             default:
                 throw new Error(`Unknown stream protocol: ${streamProtocol}`);

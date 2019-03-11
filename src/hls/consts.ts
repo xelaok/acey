@@ -1,1 +1,1 @@
-export const HLS_INDEX_PLAYLIST_NAME = "i.m3u8";
+export const HLS_PLAYLIST_NAME = "i.m3u8";

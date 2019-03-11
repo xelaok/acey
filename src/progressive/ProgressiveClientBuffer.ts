@@ -1,12 +1,11 @@
-import { logger } from "../base";
+import { createLogger, Logger } from "../base";
 
 class ProgressiveClientBuffer {
     size: number = 0;
 
     private readonly maxLength: number;
     private readonly resetLength: number;
-    private readonly alias: string;
-    private readonly streamAlias: string;
+    private readonly logger: Logger;
     private readonly chunks: Buffer[] = [];
     private readonly timestamps: number[] = [];
 
@@ -18,8 +17,7 @@ class ProgressiveClientBuffer {
     ) {
         this.maxLength = maxLength;
         this.resetLength = resetLength;
-        this.alias = alias;
-        this.streamAlias = streamAlias;
+        this.logger = createLogger(c => c`{magenta Progressive > ${streamAlias} > client ${alias}}`);
     }
 
     get isEmpty(): boolean {
@@ -30,7 +28,7 @@ class ProgressiveClientBuffer {
         const now = Date.now();
 
         if (this.getLengthBy(now) > this.maxLength) {
-            logger.warn(`${this.streamAlias} > client ${this.alias} > buffer overflow (chunks: ${this.chunks.length}, size: ${(this.size / 1024).toFixed(0)}KiB)`);
+            this.logger.warn(`buffer overflow (chunks: ${this.chunks.length}, size: ${(this.size / 1024).toFixed(0)}KiB)`);
             this.resetBy(now);
         }
 

@@ -1,10 +1,10 @@
 import nanoid from "nanoid/generate";
 
-const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+const ALPHABET = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ+/";
 
-function getRandomIdGenerator(base: number, length: number): () => string {
-    const alphabet = ALPHABET.substr(0, base);
+function createRandomIdGenerator(base: number, length: number): () => string {
+    const alphabet = ALPHABET.substr(0, Math.min(base, 64));
     return () => nanoid(alphabet, length);
 }
 
-export { getRandomIdGenerator }
+export { createRandomIdGenerator }

@@ -8,17 +8,18 @@ server:
 
 aceApi:
     endpoint: http://127.0.0.1:6878
+    requestTimeout: 20s
 
 ttvApi:
     username: username
     password: password
     endpoint: http://api.torrent-tv.ru
+    requestTimeout: 20s
 
 stream:
     stopDelay: 3s
-    sharedBufferLength: 30s
-    requestTimeout: 1m
-    responseTimeout: 1m
+    responseTimeout: 30s
+    sharedBufferLength: 20s
 
 ffmpeg:
     binPath: ~
@@ -27,39 +28,41 @@ ffmpeg:
 
 hls:
     v3:
-        idleTimeout: 15s
-        requestTimeout: 1m
+        idleTimeout: 10s
         segmentLength: 2s
-        minListLength: 6s
-        maxListLength: 10s
-        minPrebufferLength: 6s
+        minListLength: 8s
+        maxListLength: 12s
+        minInitListLength: 3s
+        minPrebufferLength: 4s
         deleteThresholdLength: 4s
         ffmpegArgs: >
+            -f mpegts
             -i pipe:0
             -c copy
-            -f hls
             -hls_time {hlsTime}
             -hls_list_size {hlsListSize}
             -hls_segment_type mpegts
             -hls_segment_filename %d.ts
+            -f hls
             {index}
     v7:
-        idleTimeout: 15s
-        requestTimeout: 1m
+        idleTimeout: 10s
         segmentLength: 2s
-        minListLength: 6s
-        maxListLength: 10s
-        minPrebufferLength: 6s
+        minListLength: 8s
+        maxListLength: 12s
+        minInitListLength: 3s
+        minPrebufferLength: 4s
         deleteThresholdLength: 4s
         ffmpegArgs: >
+            -f mpegts
             -i pipe:0
             -c:v copy
             -c:a aac
-            -f hls
             -hls_time {hlsTime}
             -hls_list_size {hlsListSize}
             -hls_segment_type fmp4
             -hls_segment_filename %d.m4s
+            -f hls
             {index}
 
 progressive:

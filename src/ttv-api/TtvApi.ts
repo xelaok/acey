@@ -1,45 +1,48 @@
 import fetch from "node-fetch";
 import qs from "qs";
-import nanoid from "nanoid/generate";
-import { logger, stopWatch, forget } from "../base";
+import { createLogger, createRandomIdGenerator, stopWatch, forget, Logger } from "../base";
 import { TtvApiConfig } from "../config";
 import { AppData } from "../app-data";
 import * as aceApi from "../ace-api";
 
+const generateGuid = createRandomIdGenerator(16, 32);
+
 class TtvApi {
     session: string = "";
 
-    private apiConfig: TtvApiConfig;
-    private appData: AppData;
+    private readonly config: TtvApiConfig;
+    private readonly appData: AppData;
+    private readonly logger: Logger;
 
-    constructor(apiConfig: TtvApiConfig, appData: AppData) {
-        this.apiConfig = apiConfig;
+    constructor(config: TtvApiConfig, appData: AppData) {
+        this.config = config;
         this.appData = appData;
+        this.logger = createLogger(c => c`{yellow TTV Api}`);
     }
 
     async auth(): Promise<void> {
-        if (!this.apiConfig.username || !this.apiConfig.password) {
+        if (!this.config.username || !this.config.password) {
             return;
         }
 
-        const authData = await this.appData.readTtvAuth(this.apiConfig.username);
+        const authData = await this.appData.readTtvAuth(this.config.username);
 
         if (authData) {
             this.session = authData.session;
             return;
         }
 
-        logger.debug("TtvApi > auth ..");
+        this.logger.debug("auth ..");
 
         let guid = await this.appData.readTtvGuid();
 
         if (!guid) {
-            guid = nanoid("0123456789abcdef", 32);
+            guid = generateGuid();
         }
 
-        const url = `${this.apiConfig.endpoint}/v3/auth.php?${qs.stringify({
-            username: this.apiConfig.username,
-            password: this.apiConfig.password,
+        const url = `${this.config.endpoint}/v3/auth.php?${qs.stringify({
+            username: this.config.username,
+            password: this.config.password,
             application: "tsproxy",
             typeresult: "json",
             guid: guid,
@@ -54,42 +57,45 @@ class TtvApi {
         this.session = result.session;
 
         forget(this.appData.writeTtvGuid(guid));
-        forget(this.appData.writeTtvAuth(this.apiConfig.username, { session: result.session }));
+        forget(this.appData.writeTtvAuth(this.config.username, { session: result.session }));
 
-        logger.debug("TtvApi > auth > success");
-        logger.debug(`- session: ${result.session}`);
-        logger.debug(`- guid: ${guid}`);
+        this.logger.debug("auth > success", [
+            c => c`session: {bold ${result.session}}`,
+            c => c`guid: {bold ${guid || "null"}}`,
+        ]);
     }
 
     async getRawChannels(): Promise<any> {
-        logger.debug("TtvApi > request channels ..");
+        this.logger.debug("request channels ..");
 
         const result = await this.makeRequest("channel_list");
-        logger.debug(`TtvApi > request channels > success (items: ${result.channels.length})`);
+        this.logger.debug(c => c`request channels > success (items: {bold ${result.channels.length}})`);
 
         return result.channels;
     }
 
     async getRawChannelCategories(): Promise<any> {
-        logger.debug("TtvApi > request channel categories ..");
+        this.logger.debug("request channel categories ..");
 
         const result = await this.makeRequest("translation_category");
-        logger.debug(`TtvApi > request channel categories > success (items: ${result.categories.length})`);
+        this.logger.debug(c => c`request channel categories > success (items: {bold ${result.categories.length}})`);
 
         return result.categories;
     }
 
-    async getAceStreamSource(id: number): Promise<aceApi.AceStreamSource> {
-        logger.debug(`TtvApi > request channel ace source (id: ${id}) ..`);
+    async getAceStreamSource(id: string): Promise<aceApi.AceStreamSource> {
+        this.logger.debug(c => c`request channel ace source (id: {bold ${id}}) ..`);
 
         const { timeText, result } = await stopWatch(() =>
             this.makeRequest("translation_stream", { channel_id: id })
         );
 
-        logger.debug(`TtvApi > request channel ace source (id: ${id}) > success`);
-        logger.debug(`- type: ${result.type}`);
-        logger.silly(`- source: ${result.source}`);
-        logger.debug(`- request time: ${timeText}`);
+        this.logger.debug(c => c`request channel ace source (id: {bold ${id}}) > success`, [
+            c => c`type: {bold ${result.type}}`,
+            c => c`request time: {bold ${timeText}}`,
+        ]);
+
+        this.logger.silly(c => c`channel ace source: {bold ${result.source}}`);
 
         return {
             type: parseAceStreamSourceType(result.type),
@@ -104,7 +110,10 @@ class TtvApi {
             session: this.session,
         });
 
-        const res = await fetch(`${this.apiConfig.endpoint}/v3/${path}.php?${query}`);
+        const res = await fetch(`${this.config.endpoint}/v3/${path}.php?${query}`, {
+            timeout: this.config.requestTimeout,
+        });
+
         const content = await res.text();
 
         let result: any;

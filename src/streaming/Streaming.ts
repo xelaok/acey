@@ -1,5 +1,5 @@
 import nanoid from "nanoid";
-import { logger, stopWatch } from "../base";
+import { createLogger, stopWatch, Logger } from "../base";
 import { StreamConfig } from "../config";
 import { AceApi, AceStreamSource, AceStreamInfo } from "../ace-api";
 import { TtvApi } from "../ttv-api";
@@ -10,6 +10,7 @@ class Streaming {
     private readonly config: StreamConfig;
     private readonly aceApi: AceApi;
     private readonly ttvApi: TtvApi;
+    private readonly logger: Logger;
     private readonly contextsBySource: Map<string, StreamContext> = new Map();
     private readonly contextsByPlaybackId: Map<string, StreamContext> = new Map();
 
@@ -17,6 +18,7 @@ class Streaming {
         this.config = config;
         this.aceApi = aceApi;
         this.ttvApi = ttvApi;
+        this.logger = createLogger(c => c`{green Streaming}`);
     }
 
     async getContext(channel: Channel): Promise<StreamContext> {
@@ -35,7 +37,7 @@ class Streaming {
                 return (channel as AceChannel).streamSource;
 
             case ChannelSource.Ttv:
-                return await this.ttvApi.getAceStreamSource(Number.parseInt(channel.id, 10));
+                return await this.ttvApi.getAceStreamSource(channel.id);
 
             default:
                 throw new Error(`Unknown channel source: ${channel.source}`);
@@ -68,7 +70,8 @@ class Streaming {
         this.contextsBySource.set(source.value, context);
         this.contextsByPlaybackId.set(info.playbackId, context);
 
-        context.onStopped = () => {
+        context.onClosed = () => {
+            this.logger.debug(c => c`remove {bold ${alias}}`);
             this.contextsBySource.delete(source.value);
             this.contextsByPlaybackId.delete(info.playbackId);
         };
@@ -78,18 +81,16 @@ class Streaming {
         return context;
     }
 
-    private async getStreamInfo(
-        source: AceStreamSource,
-        alias: string,
-    ): Promise<AceStreamInfo> {
-        logger.debug(`Stream > ${alias} > info ..`);
+    private async getStreamInfo(source: AceStreamSource, alias: string): Promise<AceStreamInfo> {
+        this.logger.debug(c => c`ace engine > request info for {bold ${alias}} ..`);
 
         const { timeText, result } = await stopWatch(() => {
             return this.aceApi.getStreamInfo(source, nanoid());
         });
 
-        logger.debug(`Stream > ${alias} > info > response`);
-        logger.debug(`- request time: ${timeText}`);
+        this.logger.debug(c => c`ace engine > request info for {bold ${alias}} > response`, [
+            c => c`request time: {bold ${timeText}}`
+        ]);
 
         return result;
     }

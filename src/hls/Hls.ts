@@ -3,13 +3,13 @@ import { HlsConfig } from "../config";
 import { FFmpeg } from "../ffmpeg";
 import { Streaming } from "../streaming";
 import { Channel } from "../types";
-import { HlsStream } from "./HlsStream";
+import { ChannelService } from "./ChannelService";
 
 class Hls {
     private readonly hlsConfig: HlsConfig;
     private readonly ffmpeg: FFmpeg;
     private readonly streaming: Streaming;
-    private readonly streams: Map<string, HlsStream> = new Map();
+    private readonly channelServices: Map<string, ChannelService>;
 
     constructor(
         hlsConfig: HlsConfig,
@@ -19,6 +19,7 @@ class Hls {
         this.hlsConfig = hlsConfig;
         this.ffmpeg = ffmpeg;
         this.streaming = streaming;
+        this.channelServices = new Map();
     }
 
     async handleRequest(
@@ -28,21 +29,21 @@ class Hls {
         profileName: string,
         filename: string,
     ): Promise<Hapi.ResponseObject | symbol> {
-        const stream = this.resolveStream(channel, profileName);
+        const service = this.resolveChannelService(channel, profileName);
 
-        if (!stream) {
+        if (!service) {
             return h.response().code(404);
         }
 
-        return stream.handleRequest(request, h, filename);
+        return service.handleRequest(request, h, filename);
     }
 
     async close(): Promise<void> {
-        this.streams.forEach(s => s.close());
-        this.streams.clear();
+        this.channelServices.forEach(s => s.close());
+        this.channelServices.clear();
     }
 
-    private resolveStream(channel: Channel, profileName: string): HlsStream | null {
+    private resolveChannelService(channel: Channel, profileName: string): ChannelService | null {
         const profile = this.hlsConfig[profileName];
 
         if (!profile) {
@@ -51,25 +52,25 @@ class Hls {
 
         const id = `${channel.source}-${channel.id}-${profileName}`;
 
-        let stream = this.streams.get(id);
+        let service = this.channelServices.get(id);
 
-        if (!stream) {
-            stream = new HlsStream(
+        if (!service) {
+            service = new ChannelService(
                 channel,
                 profile,
                 this.ffmpeg,
                 this.streaming,
             );
 
-            stream.onClosed = () => {
-                this.streams.delete(id);
+            service.onClosed = () => {
+                this.channelServices.delete(id);
             };
 
-            stream.open();
-            this.streams.set(id, stream);
+            service.open();
+            this.channelServices.set(id, service);
         }
 
-        return stream;
+        return service;
     }
 }
 

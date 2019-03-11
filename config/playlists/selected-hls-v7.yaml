@@ -1,4 +1,0 @@
-filter: selected
-format: default
-protocol: hls/v7
-channelSources: ttv, as

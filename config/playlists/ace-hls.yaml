@@ -1,4 +1,4 @@
 filter: ~
 format: default
-protocol: progressive
+protocol: hls/v3
 channelSources: ace

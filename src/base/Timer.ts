@@ -1,12 +1,14 @@
 class Timer {
     private readonly duration: number;
     private readonly handler: () => void;
-    private time: number = 0;
-    private timeout: NodeJS.Timeout | null = null;
+    private time: number;
+    private timeout: NodeJS.Timeout | null;
 
     constructor(duration: number, handler: () => void) {
         this.duration = duration;
         this.handler = handler;
+        this.time = 0;
+        this.timeout = null;
     }
 
     start(): void {
@@ -23,8 +25,10 @@ class Timer {
             return;
         }
 
+        global.clearTimeout(this.timeout);
+
         this.time = 0;
-        this.clearTimeout();
+        this.timeout = null;
     }
 
     reset(): void {
@@ -35,13 +39,13 @@ class Timer {
         this.time = Date.now() + this.duration;
     }
 
-    get isStarted(): boolean {
-        return this.timeout !== null;
-    }
-
-    private setTimeout(value: number): void {
+    private setTimeout(delay: number): void {
         this.timeout = global.setTimeout(
             () => {
+                if (!this.timeout) {
+                    return;
+                }
+
                 const timeLeft = this.time - Date.now();
 
                 if (timeLeft > 0) {
@@ -49,18 +53,15 @@ class Timer {
                     return;
                 }
 
-                this.clearTimeout();
+                global.clearTimeout(this.timeout);
+
+                this.time = 0;
+                this.timeout = null;
+
                 this.handler();
             },
-            value,
+            delay,
         );
-    }
-
-    private clearTimeout(): void {
-        if (this.timeout) {
-            global.clearTimeout(this.timeout);
-            this.timeout = null;
-        }
     }
 }
 

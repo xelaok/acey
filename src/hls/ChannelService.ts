@@ -1,24 +1,25 @@
 import Hapi from "hapi";
-import { logger, getMimeType } from "../base";
+import { createLogger, getMimeType, forget, Logger } from "../base";
 import { HlsProfile } from "../config";
 import { FFmpeg } from "../ffmpeg";
 import { Streaming, StreamContext, StreamRequest } from "../streaming";
 import { Channel } from "../types";
-import { HlsBuilder } from "./HlsBuilder";
+import { PlaylistService } from "./PlaylistService";
 
 type InitResult = {
     streamContext: StreamContext;
     streamRequest: StreamRequest;
-    builder: HlsBuilder;
+    playlist: PlaylistService;
 };
 
-class HlsStream {
+class ChannelService {
     onClosed: (() => void) | undefined;
 
     private readonly channel: Channel;
     private readonly profile: HlsProfile;
     private readonly ffmpeg: FFmpeg;
     private readonly streaming: Streaming;
+    private readonly logger: Logger;
     private isOpened: boolean;
     private initResult$: Promise<InitResult | null> | null;
 
@@ -32,6 +33,7 @@ class HlsStream {
         this.profile = profile;
         this.ffmpeg = ffmpeg;
         this.streaming = streaming;
+        this.logger = createLogger(c => c`{magenta HLS > ${channel.name}}`);
         this.isOpened = false;
         this.initResult$ = null;
     }
@@ -50,6 +52,8 @@ class HlsStream {
             return;
         }
 
+        this.logger.debug(`close`);
+
         const initResult$ = this.initResult$;
 
         this.isOpened = false;
@@ -61,9 +65,9 @@ class HlsStream {
             return;
         }
 
-        const { streamContext, streamRequest, builder } = initResult;
+        const { streamContext, streamRequest, playlist } = initResult;
 
-        await builder.close();
+        await playlist.close();
         streamContext.deleteRequest(streamRequest);
     }
 
@@ -83,7 +87,7 @@ class HlsStream {
         }
 
         const mimeType = getMimeType(filename);
-        const content = await initResult.builder.getResource(filename);
+        const content = await initResult.playlist.getContent(filename);
 
         if (!request.active()) {
             return h.close;
@@ -103,32 +107,37 @@ class HlsStream {
     }
 
     private async init(): Promise<InitResult | null> {
-        logger.verbose(`HLS > ${this.channel.name} > init`);
+        this.logger.verbose(`init`);
 
         const streamContext = await this.streaming.getContext(this.channel);
         const streamRequest = streamContext.createRequest();
         const response = await streamRequest.response$;
 
         if (!response || response.status !== 200) {
+            this.closeSelf();
             return null;
         }
 
-        const builder = new HlsBuilder(
+        const playlist = new PlaylistService(
             this.profile,
             streamRequest.stream,
             this.ffmpeg,
             this.channel.name
         );
 
-        builder.onClosed = async () => {
-            await this.close();
-            this.onClosed && this.onClosed();
+        playlist.onClosed = async () => {
+            this.closeSelf();
         };
 
-        await builder.open();
+        await playlist.open();
 
-        return { streamContext, streamRequest, builder };
+        return { streamContext, streamRequest, playlist };
+    }
+
+    private closeSelf(): void {
+        forget(this.close());
+        this.onClosed && this.onClosed();
     }
 }
 
-export { HlsStream }
+export { ChannelService }

@@ -1,5 +1,5 @@
 import Hapi from "hapi";
-import { Dict, logger } from "../base";
+import { logger, Dict } from "../base";
 import { ChannelGroup } from "../types";
 import { PlaylistConfig, ServerConfig } from "../config";
 import { ChannelRepository } from "../channel-repository";
@@ -61,7 +61,7 @@ class Server {
     }
 
     async start(): Promise<void> {
-        logger.info("Starting server...");
+        logger.info(c => "Starting server...");
         await this.server.start();
     }
 }

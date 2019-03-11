@@ -8,6 +8,10 @@ import { tryResolveFfmpegInstallerPath } from "./utils/tryResolveFfmpegInstaller
 import {
     AceUrlChannelSourceConfig,
     Config,
+    ServerConfig,
+    AceApiConfig,
+    TtvApiConfig,
+    StreamConfig,
     FFmpegConfig,
     HlsConfig,
     HlsProfile,
@@ -15,27 +19,36 @@ import {
     PlaylistFilterConfig,
     PlaylistFormatConfig,
     ProgressiveConfig,
-    RawAceUrlChannelSourceConfig,
+    ChannelSourceConfig,
+    TtvApiChannelSourceConfig,
+    RawMainConfig,
+    RawServerConfig,
+    RawAceApiConfig,
+    RawTtvApiConfig,
+    RawStreamConfig,
     RawFFmpegConfig,
-    RawChannelGroupConfig,
     RawHlsConfig,
     RawHlsProfile,
-    RawMainConfig,
+    RawProgressiveConfig,
+    RawLoggerConfig,
+    RawAceUrlChannelSourceConfig,
+    RawChannelGroupConfig,
     RawPlaylistConfig,
     RawPlaylistFilterConfig,
     RawPlaylistFormatConfig,
-    RawProgressiveConfig,
-    RawServerConfig,
     RawChannelSourceConfig,
-    RawStreamConfig,
     RawTtvApiChannelSourceConfig,
-    ServerConfig,
-    ChannelSourceConfig,
-    StreamConfig,
-    TtvApiChannelSourceConfig,
 } from "./types";
 
-import { Dict, getVMemTempDir, parseBoolean, parseDuration } from "../base";
+import {
+    getVMemTempDir,
+    parseBoolean,
+    parseDuration,
+    Dict,
+    LoggerOptions,
+    LogLevel,
+} from "../base";
+
 import { ChannelGroup, ChannelSource, StreamProtocol } from "../types";
 
 const basePath = path.resolve(__dirname, "../../config");
@@ -63,26 +76,26 @@ async function readConfig(): Promise<Config> {
         groupsMap,
         channelSources,
         playlists,
+        vmemTempDir,
     ] = await Promise.all([
         rawConfig$,
         groups$,
         groupsMap$,
         channelSources$,
         playlists$,
+        getVMemTempDir(),
     ]);
-
-    const vmemTempDir = await getVMemTempDir();
 
     return {
         app: rawConfig.app,
         server: parseServerConfig(rawConfig.server),
-        aceApi: rawConfig.aceApi,
+        aceApi: parseAceApiConfig(rawConfig.aceApi),
+        ttvApi: parseTtvApiConfig(rawConfig.ttvApi),
         stream: parseStreamConfig(rawConfig.stream),
         ffmpeg: parseFfmpegConfig(rawConfig.ffmpeg, vmemTempDir),
         hls: parseHlsConfig(rawConfig.hls),
         progressive: parseProgressiveConfig(rawConfig.progressive),
-        ttvApi: rawConfig.ttvApi,
-        logger: rawConfig.logger,
+        logger: parseLoggerOptions(rawConfig.logger),
         groups,
         groupsMap,
         channelSources,
@@ -239,12 +252,25 @@ function parseServerConfig(raw: RawServerConfig): ServerConfig {
     };
 }
 
+function parseAceApiConfig(raw: RawAceApiConfig): AceApiConfig {
+    return {
+        ...raw,
+        requestTimeout: parseDuration(raw.requestTimeout),
+    };
+}
+
+function parseTtvApiConfig(raw: RawTtvApiConfig): TtvApiConfig {
+    return {
+        ...raw,
+        requestTimeout: parseDuration(raw.requestTimeout),
+    };
+}
+
 function parseStreamConfig(raw: RawStreamConfig): StreamConfig {
     return {
         ...raw,
         stopDelay: parseDuration(raw.stopDelay),
         sharedBufferLength: parseDuration(raw.sharedBufferLength),
-        requestTimeout: parseDuration(raw.requestTimeout),
         responseTimeout: parseDuration(raw.responseTimeout),
     };
 }
@@ -272,10 +298,10 @@ function parseHlsProfile(raw: RawHlsProfile): HlsProfile {
     return {
         ...raw,
         idleTimeout: parseDuration(raw.idleTimeout),
-        requestTimeout: parseDuration(raw.requestTimeout),
         segmentLength: parseDuration(raw.segmentLength),
         minListLength: parseDuration(raw.minListLength),
         maxListLength: parseDuration(raw.maxListLength),
+        minInitListLength: parseDuration(raw.minInitListLength),
         minPrebufferLength: parseDuration(raw.minPrebufferLength),
         deleteThresholdLength: parseDuration(raw.deleteThresholdLength),
         ffmpegArgs: raw.ffmpegArgs.trim(),
@@ -289,6 +315,27 @@ function parseProgressiveConfig(raw: RawProgressiveConfig): ProgressiveConfig {
         clientMaxBufferLength: parseDuration(raw.clientMaxBufferLength),
         clientResetBufferLength: parseDuration(raw.clientResetBufferLength),
     };
+}
+
+function parseLoggerOptions(raw: RawLoggerConfig): LoggerOptions {
+    return {
+        ...raw,
+        level: parseLoggerLevel(raw.level),
+    };
+}
+
+function parseLoggerLevel(raw: string): LogLevel {
+    switch (raw) {
+        case "error":
+        case "warning":
+        case "info":
+        case "verbose":
+        case "debug":
+        case "silly":
+            return raw;
+        default:
+            throw new Error(`Incorrect logger level: ${raw}`);
+    }
 }
 
 function parseAceUrlChannelSourceConfig(raw: RawAceUrlChannelSourceConfig): AceUrlChannelSourceConfig {
@@ -334,6 +381,4 @@ function parseStreamProto(raw: string): StreamProtocol {
     }
 }
 
-export {
-    readConfig,
-}
+export { readConfig }

@@ -1,24 +1,16 @@
-import fs from "fs";
-import { Readable } from "stream";
 import { tryReadFile } from "./tryReadFile";
-
-type ScheduledFileReaderOptions = {
-    path: string;
-    timeout: number;
-    highWaterMark: number;
-};
 
 class ScheduledFileReader {
     private readonly path: string;
-    private readonly timeout: number;
     private readonly highWaterMark: number;
     private canceled: boolean = false;
     private readStartTime: number | undefined;
+    private readTimeout: NodeJS.Timeout | null;
 
-    constructor({ path, timeout, highWaterMark }: ScheduledFileReaderOptions) {
+    constructor(path: string, highWaterMark: number) {
         this.path = path;
-        this.timeout = timeout;
         this.highWaterMark = highWaterMark;
+        this.readTimeout = null;
     }
 
     async read(): Promise<Buffer | null> {
@@ -35,16 +27,16 @@ class ScheduledFileReader {
 
     cancel(): void {
         this.canceled = true;
+
+        if (this.readTimeout) {
+            global.clearTimeout(this.readTimeout);
+            this.readTimeout = null;
+        }
     }
 
     private scheduleRead(resolve: (buffer: Buffer | null) => void): void {
-        global.setTimeout(async () => {
+        this.readTimeout = global.setTimeout(async () => {
             if (this.canceled) {
-                resolve(null);
-                return;
-            }
-
-            if (this.readStartTime && Date.now() - this.readStartTime > this.timeout) {
                 resolve(null);
                 return;
             }
@@ -61,4 +53,4 @@ class ScheduledFileReader {
     }
 }
 
-export { ScheduledFileReader, ScheduledFileReaderOptions }
+export { ScheduledFileReader }

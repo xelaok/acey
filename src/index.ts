@@ -16,12 +16,11 @@ import { Hls } from "./hls";
 import { Server } from "./server";
 
 main().catch(err => {
-    logger.error(err.stack);
+    logger.error(err);
 });
 
 async function main(): Promise<void> {
     const config = await readConfig();
-
     setupLogger(config.logger);
 
     const appData = new AppData(
@@ -93,16 +92,17 @@ async function main(): Promise<void> {
 }
 
 function logConfig(config: Config, appData: AppData): void {
-    logger.verbose(`version          ${(process.env.appPackage as any).version}`);
-    logger.verbose(`process id       ${process.pid}`);
-    logger.verbose(`nodejs version   ${process.version}`);
-    logger.verbose(`app data         ${appData.dataPath}`);
-    logger.verbose(`server.binding   ${config.server.binding}`);
-    logger.verbose(`aceApi.endpoint  ${config.aceApi.endpoint}`);
-    logger.verbose(`ttvApi.endpoint  ${config.ttvApi.endpoint}`);
-    logger.verbose(`ffmpeg.binPath   ${config.ffmpeg.binPath}`);
-    logger.verbose(`ffmpeg.outPath   ${config.ffmpeg.outPath}`);
-    logger.verbose(`logger.level     ${config.logger.level}`);
+    logger.verbose(c => c`version          {bold ${(process.env.appPackage as any).version}}`);
+    logger.verbose(c => c`process id       {bold ${process.pid.toString()}}`);
+    logger.verbose(c => c`nodejs version   {bold ${process.version}}`);
+    logger.verbose(c => c`app data         {bold ${appData.dataPath}}`);
+    logger.verbose(c => c`server.binding   {bold ${config.server.binding}}`);
+    logger.verbose(c => c`aceApi.endpoint  {bold ${config.aceApi.endpoint}}`);
+    logger.verbose(c => c`ttvApi.endpoint  {bold ${config.ttvApi.endpoint}}`);
+    logger.verbose(c => c`ffmpeg.binPath   {bold ${config.ffmpeg.binPath}}`);
+    logger.verbose(c => c`ffmpeg.outPath   {bold ${config.ffmpeg.outPath}}`);
+    logger.verbose(c => c`logger.level     {bold ${config.logger.level}}`);
+    logger.verbose();
 }
 
 function logPlaylists(config: Config): void {
@@ -115,7 +115,7 @@ function logPlaylists(config: Config): void {
     logger.info("Playlists:");
 
     for (const name of names) {
-        logger.info(`- ${urlJoin("/", config.server.accessToken, name + ".m3u")}`);
+        logger.info(c => c`{gray -} {bold ${urlJoin("/", config.server.accessToken, name + ".m3u")}}`);
     }
 }
 
@@ -144,15 +144,15 @@ function handleCleanup(channelSources: ChannelSources, streaming: Streaming, hls
                 logger.info("Cleaning up...");
 
                 await Promise.all([
-                    channelSources.close(),
                     hls.close(),
                     streaming.close(),
+                    channelSources.close(),
                 ]);
 
                 logger.info("Done.");
             }
             catch(err) {
-                logger.warn(err);
+                logger.error(err);
                 logger.info("Done with errors.");
             }
             finally {

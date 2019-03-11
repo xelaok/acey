@@ -69,10 +69,7 @@ function getConfig(buildConfig) {
             sideEffects: true,
         },
         plugins: [
-            new CleanPlugin(
-                [buildPath],
-                { verbose: false }
-            ),
+            new CleanPlugin({ verbose: false }),
             new webpack.DefinePlugin({
                 "process.env.appPackage": JSON.stringify(pkg),
             }),

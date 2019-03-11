@@ -1,37 +1,170 @@
-import winston, { format } from "winston";
+import chalk, { Chalk } from "chalk";
+import d from "date-fns";
+import { splitLines } from "./splitLines";
 
-type LoggerOptions = {
-    level: string;
+type Logger = {
+    error: LogMethod;
+    warn: LogMethod;
+    info: LogMethod;
+    verbose: LogMethod;
+    debug: LogMethod;
+    silly: LogMethod;
 };
 
-const logger = winston.createLogger();
-setupLogger({ level: "debug" });
+type LoggerOptions = {
+    level: LogLevel;
+};
 
-winston.addColors({
-    debug: "gray",
-});
+type LogMethod = {
+    (message?: LogFormatter | string, details?: Array<LogFormatter | string>): void;
+};
+
+type LogFormatter = {
+    (c: Chalk): string;
+};
+
+type LogLevel = "error" | "warning" | "info" | "verbose" | "debug" | "silly";
+
+const levelPriority: Record<LogLevel, number> = {
+    "error": 1,
+    "warning": 2,
+    "info": 3,
+    "verbose": 4,
+    "debug": 5,
+    "silly": 6,
+};
+
+let activeLevel: LogLevel = "debug";
+
+const logger = createLogger();
 
 function setupLogger(options: LoggerOptions): void {
-    logger.configure({
-        level: options.level,
-        levels: winston.config.npm.levels,
-        exitOnError: false,
-        format: format.combine(
-            format.colorize({ all: true }),
-            format.timestamp({ format: 'HH:mm:ss' }),
-            format.padLevels(),
-            format.printf(info => `${info.timestamp} ${info.level} ${info.message}`),
-        ),
-        transports: [
-            new winston.transports.Console({
-                handleExceptions: false,
-            }),
-        ],
-    });
+    activeLevel = options.level;
 }
 
-export {
-    logger,
-    setupLogger,
-    LoggerOptions,
+function createLogger(prefixFormatter?: LogFormatter | string): Logger {
+    return {
+        error: createLogMethod(
+            prefixFormatter,
+            "error",
+            "E",
+            chalk.red,
+        ),
+        warn: createLogMethod(
+            prefixFormatter,
+            "warning",
+            "W",
+            chalk.yellow,
+        ),
+        info: createLogMethod(
+            prefixFormatter,
+            "info",
+            "I",
+            chalk.green,
+        ),
+        verbose: createLogMethod(
+            prefixFormatter,
+            "verbose",
+            "V",
+            chalk.cyan,
+        ),
+        debug: createLogMethod(
+            prefixFormatter,
+            "debug",
+            "D",
+            chalk.gray,
+        ),
+        silly: createLogMethod(
+            prefixFormatter,
+            "silly",
+            "S",
+            chalk.magenta,
+        ),
+    };
 }
+
+function createLogMethod(
+    prefix: LogFormatter | string | undefined,
+    level: LogLevel,
+    levelLabel: string,
+    defaultStyle: Chalk,
+): LogMethod {
+    if (levelPriority[level] > levelPriority[activeLevel]) {
+        return nullLoggerMethod;
+    }
+
+    const prefixValue = prefix instanceof Function
+        ? prefix(chalk)
+        : prefix;
+
+    const prefixString = prefixValue ? prefixValue + " " : "";
+
+    return (
+        message: LogFormatter | string | undefined,
+        detailMessages?: Array<LogFormatter | string | undefined>,
+    ) => {
+        const dateString = chalk.gray(d.format(Date.now(), "HH:mm:ss.SSS"));
+
+        logLine(
+            dateString,
+            prefixString,
+            levelLabel,
+            defaultStyle,
+            message,
+            "",
+        );
+
+        if (!detailMessages) {
+            return;
+        }
+
+        for (const message of detailMessages) {
+            if (!message) {
+                continue;
+            }
+
+            logLine(
+                dateString,
+                prefixString,
+                levelLabel,
+                defaultStyle,
+                message,
+                " ",
+            );
+        }
+    };
+}
+
+function logLine(
+    dateString: string,
+    prefixString: string,
+    levelLabel: string,
+    defaultStyle: Chalk,
+    message: LogFormatter | string | undefined,
+    messagePrefix: string,
+): void {
+    const messageValue = message instanceof Function
+        ? message(chalk)
+        : message
+    ;
+
+    const messageLines = messageValue
+        ? splitLines(messageValue.toString(), true, true)
+        : [""]
+    ;
+
+    for (const line of messageLines) {
+        console.log(
+            dateString + " " +
+            defaultStyle(
+                chalk.bold(levelLabel) + " " +
+                prefixString +
+                (messagePrefix ? messagePrefix + " " : "") +
+                line
+            ));
+    }
+}
+
+function nullLoggerMethod() {}
+
+export { logger, setupLogger, createLogger, LoggerOptions, LogLevel, Logger }

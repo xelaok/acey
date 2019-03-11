@@ -1,10 +1,10 @@
 import { splitLines } from "../../base";
-import { HlsIndex, HlsTag, HlsSegment } from "../types";
+import { HlsPlaylist, HlsPlaylistTag, HlsPlaylistSegment } from "../types";
 
 const EXTX = "#EXT-X-";
 const EXTINF = "#EXTINF:";
 
-function parseIndex(content: string): HlsIndex {
+function parseFFmpegPlaylist(content: string): HlsPlaylist | null {
     const lines = splitLines(content, true, true);
 
     let tags = [];
@@ -31,6 +31,10 @@ function parseIndex(content: string): HlsIndex {
         lineIndex +=1;
     }
 
+    if (segments.length === 0) {
+        return null;
+    }
+
     return { tags, segments };
 }
 
@@ -42,7 +46,7 @@ function isSegment(line: string) {
     return line.startsWith(EXTINF);
 }
 
-function parseTag(line: string): HlsTag {
+function parseTag(line: string): HlsPlaylistTag {
     const dividerIndex = line.indexOf(":");
     const name = line.substr(0, dividerIndex).trim();
     const value = line.substr(dividerIndex + 1).trim();
@@ -50,11 +54,11 @@ function parseTag(line: string): HlsTag {
     return { name, value };
 }
 
-function parseSegment(line1: string, line2: string): HlsSegment {
+function parseSegment(line1: string, line2: string): HlsPlaylistSegment {
     const name = line2;
-    const length = Number.parseFloat(line1.substr(EXTINF.length)) * 1e3;
+    const length = Math.round(Number.parseFloat(line1.substr(EXTINF.length)) * 1e3);
 
     return { name, length };
 }
 
-export { parseIndex }
+export { parseFFmpegPlaylist }

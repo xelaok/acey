@@ -1,4 +1,4 @@
-import { Dict, logger, fetchContent, forget, FetchContentResult } from "../../base";
+import { Dict, logger, createLogger, fetchContent, forget, Logger, FetchContentResult } from "../../base";
 import { ChannelRepository } from "../../channel-repository";
 import { AppData } from "../../app-data";
 import { parseAcePlaylist } from "../../playlist-util";
@@ -11,6 +11,7 @@ class AceSourceWorker implements ChannelSourceWorker {
     private readonly channelRepository: ChannelRepository;
     private readonly appData: AppData;
     private readonly groupsMap: Dict<ChannelGroup>;
+    private readonly logger: Logger;
     private timeout: NodeJS.Timeout | null = null;
     private isRunning: boolean = false;
     private lastFetched: number | null = null;
@@ -28,6 +29,7 @@ class AceSourceWorker implements ChannelSourceWorker {
         this.channelRepository = channelRepository;
         this.appData = appData;
         this.groupsMap = groupsMap;
+        this.logger = createLogger(c => c`{white Ace Source}`);
     }
 
     async open(): Promise<void> {
@@ -94,7 +96,7 @@ class AceSourceWorker implements ChannelSourceWorker {
     }
 
     private async load(): Promise<void> {
-        logger.debug("Ace Source > load ..");
+        this.logger.debug("load ..");
         try {
             const fetchResult = await fetchContent(
                 this.url,
@@ -117,7 +119,7 @@ class AceSourceWorker implements ChannelSourceWorker {
             }
 
             if (!fetchResult) {
-                logger.debug("Ace Source > load > success (not modified)");
+                this.logger.debug("load > success (not modified)");
                 return;
             }
 
@@ -129,10 +131,10 @@ class AceSourceWorker implements ChannelSourceWorker {
             }
 
             this.channelRepository.updateAceChannels(streams);
-            logger.debug(`Ace Source > load > success (${streams.length} streams)`);
+            this.logger.debug(c => c`load > success ({bold ${streams.length.toString()}} streams)`);
         }
         catch (error) {
-            logger.warning(`Ace Source > load > failed > ${error.stack}`);
+            this.logger.warn(`load > failed > ${error.stack}`);
         }
     }
 }

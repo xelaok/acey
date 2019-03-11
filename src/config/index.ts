@@ -11,7 +11,6 @@ export {
     HlsProfile,
     ProgressiveConfig,
     TtvApiConfig,
-    LoggerConfig,
     ChannelSourceConfig,
     AceUrlChannelSourceConfig,
     TtvApiChannelSourceConfig,
