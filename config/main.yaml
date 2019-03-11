@@ -8,7 +8,7 @@ server:
 
 aceApi:
     endpoint: http://127.0.0.1:6878
-    requestTimeout: 20s
+    requestTimeout: 1m
 
 ttvApi:
     username: username
@@ -18,7 +18,7 @@ ttvApi:
 
 stream:
     stopDelay: 3s
-    responseTimeout: 30s
+    responseTimeout: 2m
     sharedBufferLength: 20s
 
 ffmpeg:
