@@ -1,7 +1,8 @@
 import { Request, ResponseToolkit, Server } from "hapi";
+import { logger } from "../../base";
 import { ServerConfig } from "../../config";
 import { ChannelRepository } from "../../channel-repository";
-import { Hls } from "../../hls";
+import { HlsService } from "../../hls";
 import { formatSecureRoutePath } from "../utils/formatSecureRoutePath";
 import { parseChannel } from "../utils/parseChannel";
 
@@ -9,7 +10,7 @@ function hlsStream(
     server: Server,
     serverConfig: ServerConfig,
     channelRepository: ChannelRepository,
-    hls: Hls,
+    hlsService: HlsService,
 ): void {
     server.route({
         method: "GET",
@@ -18,19 +19,27 @@ function hlsStream(
             serverConfig,
         ),
         handler: async (request: Request, h: ResponseToolkit) => {
-            const channel = parseChannel(request, channelRepository);
+            try {
+                const channel = parseChannel(request, channelRepository);
 
-            if (!channel) {
-                return h.response().code(404);
+                if (!channel) {
+                    return h.response().code(404);
+                }
+
+                const response = await hlsService.handleRequest(
+                    request,
+                    h,
+                    channel,
+                    request.params.profile,
+                    request.params.filename,
+                );
+
+                return response;
             }
-
-            return hls.handleRequest(
-                request,
-                h,
-                channel,
-                request.params.profile,
-                request.params.filename,
-            );
+            catch (err) {
+                logger.error(err instanceof Error ? err.stack : err);
+                return h.response().code(500);
+            }
         },
     });
 }

@@ -1,1 +1,1 @@
-export * from "./Progressive";
+export * from "./ProgressiveService";

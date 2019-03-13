@@ -1,10 +1,10 @@
 import { Dict } from "../base";
 import { AppData } from "../app-data";
 import { ChannelRepository } from "../channel-repository";
-import { TtvApi } from "../ttv-api";
+import { TtvClient } from "../ttv-client";
 import { ChannelSourceWorker, ChannelSourceInfo } from "./types";
-import { AceSourceWorker } from "./source-workers/AceSourceWorker";
-import { TtvSourceWorker } from "./source-workers/TtvSourceWorker";
+import { AceSource } from "./ace/AceSource";
+import { TtvSource } from "./ttv/TtvSource";
 
 import {
     ChannelSourceConfig,
@@ -25,7 +25,7 @@ class ChannelSources {
         sourceConfigs: Dict<ChannelSourceConfig>,
         groupsMap: Dict<ChannelGroup>,
         appData: AppData,
-        ttvApi: TtvApi,
+        ttvClient: TtvClient,
         channelRepository: ChannelRepository,
     ) {
         this.configs = new Map();
@@ -39,7 +39,7 @@ class ChannelSources {
             switch (config.provider) {
                 case ChannelSource.Ace: {
                     const c = config as AceUrlChannelSourceConfig;
-                    worker = new AceSourceWorker(
+                    worker = new AceSource(
                         c.url,
                         c.updateInterval,
                         channelRepository,
@@ -50,12 +50,12 @@ class ChannelSources {
                 }
                 case ChannelSource.Ttv: {
                     const c = config as TtvApiChannelSourceConfig;
-                    worker = new TtvSourceWorker(
+                    worker = new TtvSource(
                         c.updateInterval,
                         channelRepository,
                         appData,
                         groupsMap,
-                        ttvApi,
+                        ttvClient,
                     );
                     break;
                 }

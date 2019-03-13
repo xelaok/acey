@@ -1,4 +1,4 @@
-import { AceStreamSource } from "../../ace-api";
+import { AceStreamSource } from "../../ace-client";
 import { Channel } from "../Channel";
 
 type AceChannel = Channel & {

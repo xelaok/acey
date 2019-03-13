@@ -1,7 +1,7 @@
 import { Request, ResponseToolkit, Server } from "hapi";
 import { ServerConfig } from "../../config";
 import { ChannelRepository } from "../../channel-repository";
-import { Progressive } from "../../progressive";
+import { ProgressiveService } from "../../progressive";
 import { formatSecureRoutePath } from "../utils/formatSecureRoutePath";
 import { parseChannel } from "../utils/parseChannel";
 
@@ -9,7 +9,7 @@ function progressiveStream(
     server: Server,
     serverConfig: ServerConfig,
     channelRepository: ChannelRepository,
-    progressiveDownload: Progressive,
+    progressiveService: ProgressiveService,
 ): void {
     server.route({
         method: "GET",
@@ -24,7 +24,7 @@ function progressiveStream(
                 return h.response().code(404);
             }
 
-            return progressiveDownload.handleRequest(request, h, channel);
+            return progressiveService.handleRequest(request, h, channel);
         },
     });
 }

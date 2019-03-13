@@ -1,6 +1,6 @@
 import { Channel, ChannelSource, AceChannel, TtvChannel } from "../types";
-import { AceRepository } from "./sources/AceRepository";
-import { TtvRepository } from "./sources/TtvRepository";
+import { AceRepository } from "./AceRepository";
+import { TtvRepository } from "./TtvRepository";
 
 class ChannelRepository {
     private readonly aceRepository: AceRepository;

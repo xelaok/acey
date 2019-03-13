@@ -1,34 +1,40 @@
-const _ = require("lodash");
+const { merge } = require("lodash");
 
 const options = {
     base: {
-        compile: {
+        target: {
             node: "current",
         },
     },
     debug: {
         buildDir: "dev",
+        tsCheck: true,
         bundle: {
-            sourceMap: false,
+            sourceMap: "cheap-module-source-map",
+            beautify: false,
             moduleConcatenation: false,
         },
     },
     release: {
         buildDir: "dev",
+        tsCheck: true,
         bundle: {
-            sourceMap: false,
+            sourceMap: "source-map",
+            beautify: true,
             moduleConcatenation: true,
         },
     },
     production: {
         buildDir: "prod",
+        tsCheck: false,
         bundle: {
-            sourceMap: false,
+            sourceMap: "source-map",
+            beautify: true,
             moduleConcatenation: true,
         },
     },
 };
 
 module.exports = function get(name) {
-    return _.merge(options["base"], options[name]);
-}
+    return merge(options["base"], options[name]);
+};

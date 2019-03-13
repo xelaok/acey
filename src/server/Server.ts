@@ -4,8 +4,8 @@ import { ChannelGroup } from "../types";
 import { PlaylistConfig, ServerConfig } from "../config";
 import { ChannelRepository } from "../channel-repository";
 import { ChannelSources } from "../channel-sources";
-import { Progressive } from "../progressive";
-import { Hls } from "../hls";
+import { ProgressiveService } from "../progressive";
+import { HlsService } from "../hls";
 import * as routes from "./routes";
 import { handleLogRequests } from "./utils/handleLogRequests";
 
@@ -18,8 +18,8 @@ class Server {
         playlistConfigs: Dict<PlaylistConfig>,
         channelRepository: ChannelRepository,
         channelSources: ChannelSources,
-        progressiveDownload: Progressive,
-        hls: Hls,
+        progressiveService: ProgressiveService,
+        hlsService: HlsService,
     ) {
         const [host, port] = serverConfig.binding.split(":");
 
@@ -47,22 +47,22 @@ class Server {
             server,
             serverConfig,
             channelRepository,
-            hls,
+            hlsService,
         );
 
         routes.progressiveStream(
             server,
             serverConfig,
             channelRepository,
-            progressiveDownload,
+            progressiveService,
         );
 
         this.server = server;
     }
 
-    async start(): Promise<void> {
+    start(): Promise<void> {
         logger.info(c => "Starting server...");
-        await this.server.start();
+        return this.server.start();
     }
 }
 

@@ -14,7 +14,7 @@ ttvApi:
     username: username
     password: password
     endpoint: http://api.torrent-tv.ru
-    requestTimeout: 20s
+    requestTimeout: 1m
 
 stream:
     stopDelay: 3s
@@ -28,13 +28,13 @@ ffmpeg:
 
 hls:
     v3:
-        idleTimeout: 10s
+        idleTimeout: 12s
         segmentLength: 2s
         minListLength: 8s
         maxListLength: 12s
         minInitListLength: 3s
         minPrebufferLength: 4s
-        deleteThresholdLength: 4s
+        deleteThresholdLength: 12s
         ffmpegArgs: >
             -f mpegts
             -i pipe:0
@@ -46,13 +46,13 @@ hls:
             -f hls
             {index}
     v7:
-        idleTimeout: 10s
+        idleTimeout: 12s
         segmentLength: 2s
         minListLength: 8s
         maxListLength: 12s
         minInitListLength: 3s
         minPrebufferLength: 4s
-        deleteThresholdLength: 4s
+        deleteThresholdLength: 12s
         ffmpegArgs: >
             -f mpegts
             -i pipe:0

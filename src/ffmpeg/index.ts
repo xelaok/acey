@@ -1,2 +1,2 @@
-export * from "./FFmpeg";
-export * from "./FFmpegWorker";
+export * from "./FFmpegService";
+export * from "./FFmpegTask";

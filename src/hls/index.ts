@@ -1,2 +1,2 @@
-export * from "./Hls";
+export * from "./HlsService";
 export * from "./consts";

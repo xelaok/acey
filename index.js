@@ -1,3 +1,5 @@
+require("source-map-support").install();
+
 if (process.argv[2] === "dev") {
     require("./build/dev");
     return;

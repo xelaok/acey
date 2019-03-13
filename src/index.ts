@@ -1,22 +1,21 @@
-import { sortBy } from "lodash";
-import { FetchError } from "node-fetch";
 import nodeCleanup from "node-cleanup";
 import urlJoin from "url-join";
+import { sortBy } from "lodash";
 import { logger, setupLogger, forget } from "./base";
 import { readConfig, Config } from "./config";
 import { AppData } from "./app-data";
-import { AceApi } from "./ace-api";
-import { TtvApi } from "./ttv-api";
+import { AceClient } from "./ace-client";
+import { TtvClient } from "./ttv-client";
 import { ChannelRepository } from "./channel-repository";
-import { FFmpeg } from "./ffmpeg";
+import { FFmpegService } from "./ffmpeg";
 import { ChannelSources } from "./channel-sources";
-import { Streaming } from "./streaming";
-import { Progressive } from "./progressive";
-import { Hls } from "./hls";
+import { StreamService } from "./stream";
+import { ProgressiveService } from "./progressive";
+import { HlsService } from "./hls";
 import { Server } from "./server";
 
 main().catch(err => {
-    logger.error(err);
+    logger.error(err.stack);
 });
 
 async function main(): Promise<void> {
@@ -27,16 +26,16 @@ async function main(): Promise<void> {
         config.app,
     );
 
-    const aceApi = new AceApi(
+    const aceClient = new AceClient(
         config.aceApi,
     );
 
-    const ttvApi = new TtvApi(
+    const ttvClient = new TtvClient(
         config.ttvApi,
         appData,
     );
 
-    const ffmpeg = new FFmpeg(
+    const ffmpegService = new FFmpegService(
         config.ffmpeg,
     );
 
@@ -46,25 +45,25 @@ async function main(): Promise<void> {
         config.channelSources,
         config.groupsMap,
         appData,
-        ttvApi,
+        ttvClient,
         channelRepository,
     );
 
-    const streaming = new Streaming(
+    const streamService = new StreamService(
         config.stream,
-        aceApi,
-        ttvApi,
+        aceClient,
+        ttvClient,
     );
 
-    const progressive = new Progressive(
+    const progressiveService = new ProgressiveService(
         config.progressive,
-        streaming,
+        streamService,
     );
 
-    const hls = new Hls(
+    const hlsService = new HlsService(
         config.hls,
-        ffmpeg,
-        streaming,
+        ffmpegService,
+        streamService,
     );
 
     const server = new Server(
@@ -73,26 +72,26 @@ async function main(): Promise<void> {
         config.playlists,
         channelRepository,
         channelSources,
-        progressive,
-        hls,
+        progressiveService,
+        hlsService,
     );
 
     logConfig(config, appData);
 
     await appData.init();
-    await ttvApi.auth();
+    await ttvClient.auth();
     await channelSources.open();
     await server.start();
 
     handleExceptions();
-    handleCleanup(channelSources, streaming, hls);
+    handleCleanup(channelSources, streamService, hlsService);
 
     logPlaylists(config);
     logger.info("Ready");
 }
 
 function logConfig(config: Config, appData: AppData): void {
-    logger.verbose(c => c`version          {bold ${(process.env.appPackage as any).version}}`);
+    logger.verbose(c => c`version          {bold ${process.env.appVersion as string}}`);
     logger.verbose(c => c`process id       {bold ${process.pid.toString()}}`);
     logger.verbose(c => c`nodejs version   {bold ${process.version}}`);
     logger.verbose(c => c`app data         {bold ${appData.dataPath}}`);
@@ -102,7 +101,6 @@ function logConfig(config: Config, appData: AppData): void {
     logger.verbose(c => c`ffmpeg.binPath   {bold ${config.ffmpeg.binPath}}`);
     logger.verbose(c => c`ffmpeg.outPath   {bold ${config.ffmpeg.outPath}}`);
     logger.verbose(c => c`logger.level     {bold ${config.logger.level}}`);
-    logger.verbose();
 }
 
 function logPlaylists(config: Config): void {
@@ -112,24 +110,28 @@ function logPlaylists(config: Config): void {
         return;
     }
 
-    logger.info("Playlists:");
-
-    for (const name of names) {
-        logger.info(c => c`{gray -} {bold ${urlJoin("/", config.server.accessToken, name + ".m3u")}}`);
-    }
+    logger.info(`Playlists:`, c => names.map(name =>
+        c`{bold ${urlJoin("/", config.server.accessToken, name + ".m3u")}}`
+    ));
 }
 
 function handleExceptions(): void {
     process.on("uncaughtException", err => {
-        logger.warn(`Uncaught Exception > ${formatErrorMessage(err)}`);
+        logger.warn(c => c`{bold Uncaught Exception}`);
+        logger.warn(err.stack);
     });
 
     process.on("unhandledRejection", err => {
-        logger.warn(`Unhandled Rejection > ${formatErrorMessage(err)}`);
+        logger.warn(c => c`{bold Unhandled Rejection}`);
+        logger.warn(err.stack || err);
     });
 }
 
-function handleCleanup(channelSources: ChannelSources, streaming: Streaming, hls: Hls): void {
+function handleCleanup(
+    channelSources: ChannelSources,
+    streamService: StreamService,
+    hlsService: HlsService,
+): void {
     nodeCleanup((exitCode, signal) => {
         console.log("");
 
@@ -140,19 +142,18 @@ function handleCleanup(channelSources: ChannelSources, streaming: Streaming, hls
         nodeCleanup.uninstall();
 
         forget(async () => {
+            logger.info("Cleaning up...");
             try {
-                logger.info("Cleaning up...");
-
                 await Promise.all([
-                    hls.close(),
-                    streaming.close(),
+                    hlsService.close(),
+                    streamService.close(),
                     channelSources.close(),
                 ]);
 
                 logger.info("Done.");
             }
             catch(err) {
-                logger.error(err);
+                logger.error(err.stack || err);
                 logger.info("Done with errors.");
             }
             finally {
@@ -162,13 +163,4 @@ function handleCleanup(channelSources: ChannelSources, streaming: Streaming, hls
 
         return false;
     });
-}
-
-function formatErrorMessage(err: any): string {
-    switch (true) {
-        case err instanceof FetchError:
-            return err.message;
-        default:
-            return err.stack;
-    }
 }

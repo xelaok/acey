@@ -16,7 +16,7 @@ type LoggerOptions = {
 };
 
 type LogMethod = {
-    (message?: LogFormatter | string, details?: Array<LogFormatter | string>): void;
+    (message?: LogFormatter | string, details?: ((c: Chalk) => string[]) | string[]): void;
 };
 
 type LogFormatter = {
@@ -89,10 +89,6 @@ function createLogMethod(
     levelLabel: string,
     defaultStyle: Chalk,
 ): LogMethod {
-    if (levelPriority[level] > levelPriority[activeLevel]) {
-        return nullLoggerMethod;
-    }
-
     const prefixValue = prefix instanceof Function
         ? prefix(chalk)
         : prefix;
@@ -101,8 +97,12 @@ function createLogMethod(
 
     return (
         message: LogFormatter | string | undefined,
-        detailMessages?: Array<LogFormatter | string | undefined>,
+        detailMessages?: ((c: Chalk) => string[]) | string[],
     ) => {
+        if (levelPriority[level] > levelPriority[activeLevel]) {
+            return nullLoggerMethod;
+        }
+
         const dateString = chalk.gray(d.format(Date.now(), "HH:mm:ss.SSS"));
 
         logLine(
@@ -118,14 +118,18 @@ function createLogMethod(
             return;
         }
 
-        for (const message of detailMessages) {
+        let detailMessagesResult = detailMessages instanceof Array
+            ? detailMessages
+            : detailMessages(chalk);
+
+        for (const message of detailMessagesResult) {
             if (!message) {
                 continue;
             }
 
             logLine(
                 dateString,
-                prefixString,
+                "",
                 levelLabel,
                 defaultStyle,
                 message,
@@ -149,7 +153,7 @@ function logLine(
     ;
 
     const messageLines = messageValue
-        ? splitLines(messageValue.toString(), true, true)
+        ? splitLines(messageValue.toString(), false, false)
         : [""]
     ;
 
@@ -167,4 +171,13 @@ function logLine(
 
 function nullLoggerMethod() {}
 
-export { logger, setupLogger, createLogger, LoggerOptions, LogLevel, Logger }
+export {
+    logger,
+    setupLogger,
+    createLogger,
+    Logger,
+    LoggerOptions,
+    LogMethod,
+    LogLevel,
+    LogFormatter,
+}

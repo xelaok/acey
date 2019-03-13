@@ -4,6 +4,7 @@ export * from "./consts";
 export * from "./delay";
 export * from "./env";
 export * from "./fetchContent";
+export * from "./fetchRedirects";
 export * from "./forget";
 export * from "./getAppDataPath";
 export * from "./getBaseRequestPath";

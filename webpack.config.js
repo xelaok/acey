@@ -1,6 +1,8 @@
 const path = require("path");
 const webpack = require("webpack");
 const CleanPlugin = require("clean-webpack-plugin");
+const TerserPlugin = require("terser-webpack-plugin");
+const ForkTsCheckerPlugin = require("fork-ts-checker-webpack-plugin");
 const nodeExternals = require("webpack-node-externals");
 const getBuildConfig = require("./build-config");
 const pkg = require("./package.json");
@@ -8,7 +10,7 @@ const pkg = require("./package.json");
 module.exports = function ({ buildMode }) {
     console.log(`build mode: ${buildMode}`);
     return getConfig(getBuildConfig(buildMode));
-}
+};
 
 function getConfig(buildConfig) {
     const buildPath = `./build/${buildConfig.buildDir}`;
@@ -41,12 +43,13 @@ function getConfig(buildConfig) {
                         {
                             loader: "babel-loader",
                             options: {
+                                cacheDirectory: true,
                                 presets: [
                                     ["@babel/env", {
                                         loose: true,
                                         modules: false,
                                         targets: {
-                                            node: buildConfig.compile.node,
+                                            node: buildConfig.target.node,
                                         },
                                     }],
                                 ],
@@ -57,22 +60,40 @@ function getConfig(buildConfig) {
                         },
                         {
                             loader: "ts-loader",
+                            options: {
+                                transpileOnly: true,
+                            },
                         },
                     ],
                 },
             ],
         },
         optimization: {
-            minimize: false,
+            minimize: buildConfig.bundle.beautify,
             concatenateModules: buildConfig.bundle.moduleConcatenation,
             usedExports: true,
             sideEffects: true,
+            minimizer: [
+                new TerserPlugin({
+                    parallel: true,
+                    sourceMap: true,
+                    terserOptions: {
+                        mangle: false,
+                        compress: false,
+                        output: {
+                            beautify: true,
+                            comments: false,
+                        },
+                    },
+                }),
+            ],
         },
         plugins: [
             new CleanPlugin({ verbose: false }),
             new webpack.DefinePlugin({
-                "process.env.appPackage": JSON.stringify(pkg),
+                "process.env.appVersion": JSON.stringify(pkg.version),
             }),
-        ],
+            buildConfig.tsCheck && new ForkTsCheckerPlugin(),
+        ].filter(p => !!p),
     };
 }
