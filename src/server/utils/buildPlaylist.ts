@@ -1,10 +1,10 @@
 import { sortBy } from "lodash";
 import urlJoin from "url-join";
-import { CRLF } from "../base";
-import { ChannelGroup, ChannelSource, StreamProtocol } from "../types";
-import { PlaylistFilterConfig, PlaylistFormatConfig } from "../config";
-import { ChannelSourceInfo } from "../channel-sources";
-import { HLS_PLAYLIST_NAME } from "../hls";
+import { CRLF } from "../../base";
+import { ChannelGroup, ChannelSource, StreamProtocol } from "../../types";
+import { PlaylistFilterConfig, PlaylistFormatConfig } from "../../config";
+import { ChannelSourceInfo } from "../../channel-sources";
+import { HLS_PLAYLIST_NAME } from "../../hls";
 
 function buildPlaylist(
     basePath: string,

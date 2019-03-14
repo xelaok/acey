@@ -4,6 +4,7 @@ import { ServerConfig } from "../../config";
 import { ChannelRepository } from "../../channel-repository";
 import { HlsService } from "../../hls";
 import { formatSecureRoutePath } from "../utils/formatSecureRoutePath";
+import { createRouteHandler } from "../utils/createRouteHandler";
 import { parseChannel } from "../utils/parseChannel";
 
 function hlsStream(
@@ -18,29 +19,23 @@ function hlsStream(
             "/s/{channelSource}/{channelId}/hls/{profile}/{filename}",
             serverConfig,
         ),
-        handler: async (request: Request, h: ResponseToolkit) => {
-            try {
-                const channel = parseChannel(request, channelRepository);
+        handler: createRouteHandler(async (request: Request, h: ResponseToolkit) => {
+            const channel = parseChannel(request, channelRepository);
 
-                if (!channel) {
-                    return h.response().code(404);
-                }
-
-                const response = await hlsService.handleRequest(
-                    request,
-                    h,
-                    channel,
-                    request.params.profile,
-                    request.params.filename,
-                );
-
-                return response;
+            if (!channel) {
+                return h.response().code(404);
             }
-            catch (err) {
-                logger.error(err instanceof Error ? err.stack : err);
-                return h.response().code(500);
-            }
-        },
+
+            const response = await hlsService.handleRequest(
+                request,
+                h,
+                channel,
+                request.params.profile,
+                request.params.filename,
+            );
+
+            return response;
+        }),
     });
 }
 

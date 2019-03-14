@@ -52,7 +52,7 @@ class TtvSource implements ChannelSourceWorker {
         }
 
         if (this.isUpdateNeeded()) {
-            logger.info(`Loading TTV streams...`);
+            logger.info(`Loading TTV channels...`);
             await this.load();
         }
 
@@ -125,16 +125,16 @@ class TtvSource implements ChannelSourceWorker {
             );
 
             if (channels.length === 0) {
-                logger.warn(`No TTV streams loaded`);
+                logger.warn(`No TTV channels loaded`);
                 return;
             }
 
             this.channelRepository.updateTtvChannels(channels);
             this.logger.debug(c => c`load > success ({bold ${channels.length.toString()}} channels)`);
         }
-        catch (error) {
+        catch (err) {
             this.logger.warn(`load > failed`);
-            this.logger.warn(error.stack);
+            this.logger.warn(err.stack || err);
         }
         finally {
             this.lastFetched = lastFetched;

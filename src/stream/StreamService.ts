@@ -5,7 +5,7 @@ import { AceClient, AceStreamSource, AceStreamInfo } from "../ace-client";
 import { TtvClient } from "../ttv-client";
 import { Channel, ChannelSource, AceChannel } from "../types";
 import { StreamContext } from "./StreamContext";
-import { AceStreamRequestResult } from "./types";
+import { AceStreamClient } from "./types";
 
 class StreamService {
     private readonly config: StreamConfig;
@@ -24,14 +24,16 @@ class StreamService {
         this.contextsByPlaybackId = new Map();
     }
 
-    async createRequest(channel: Channel): Promise<AceStreamRequestResult> {
+    async addClient(channel: Channel): Promise<AceStreamClient> {
         const source = await this.resolveSource(channel);
         const context = await this.resolveContext(source, channel.name);
-        return context.createRequest();
+        const client = await context.addClient();
+
+        return client;
     }
 
-    closeRequest(requestResult: AceStreamRequestResult): void {
-        requestResult.stream.end();
+    closeClient(client: AceStreamClient): void {
+        client.stream.end();
     }
 
     async close(): Promise<void> {
@@ -104,8 +106,10 @@ class StreamService {
             return result;
         }
         catch (err) {
-            this.logger.warn(c => c`{cyan ace engine} > request info for {bold ${alias}} > failed`);
-            this.logger.warn(err);
+            this.logger.warn(
+                c => c`{cyan ace engine} > request info for {bold ${alias}} > failed`,
+                [`error: ${err}`],
+            );
             throw err;
         }
     }

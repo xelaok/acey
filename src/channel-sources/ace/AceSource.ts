@@ -50,7 +50,7 @@ class AceSource implements ChannelSourceWorker {
         }
 
         if (this.isUpdateNeeded()) {
-            logger.info(`Fetching Ace streams...`);
+            logger.info(`Loading Ace channels...`);
             await this.load();
         }
 
@@ -96,6 +96,8 @@ class AceSource implements ChannelSourceWorker {
     }
 
     private async load(): Promise<void> {
+        const lastFetched = Date.now();
+
         this.logger.debug(`load ..`);
         try {
             const fetchResult = await fetchContent(
@@ -103,19 +105,15 @@ class AceSource implements ChannelSourceWorker {
                 this.fetchResult ? this.fetchResult.lastModifiedString : null,
             );
 
-            this.lastFetched = Date.now();
-
             if (fetchResult) {
                 this.fetchResult = fetchResult;
             }
 
             if (this.fetchResult) {
-                forget(
-                    this.appData.writeAceSource(this.url, {
-                        lastFetched: this.lastFetched,
-                        fetchResult: this.fetchResult,
-                    })
-                );
+                forget(this.appData.writeAceSource(this.url, {
+                    lastFetched: lastFetched,
+                    fetchResult: this.fetchResult,
+                }));
             }
 
             if (!fetchResult) {
@@ -126,16 +124,19 @@ class AceSource implements ChannelSourceWorker {
             const streams = parsePlaylist(fetchResult.content, this.groupsMap);
 
             if (streams.length === 0) {
-                logger.warn(`No Ace streams loaded`);
+                logger.warn(`No Ace channels loaded`);
                 return;
             }
 
             this.channelRepository.updateAceChannels(streams);
-            this.logger.debug(c => c`load > success ({bold ${streams.length.toString()}} streams)`);
+            this.logger.debug(c => c`load > success ({bold ${streams.length.toString()}} channels)`);
         }
-        catch (error) {
+        catch (err) {
             this.logger.warn(`load > failed`);
-            this.logger.warn(error.stack);
+            this.logger.warn(err.stack || err);
+        }
+        finally {
+            this.lastFetched = lastFetched;
         }
     }
 }

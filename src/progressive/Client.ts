@@ -3,7 +3,7 @@ import { Headers } from "node-fetch";
 import { createLogger, Logger, Timer } from "../base";
 import { ProgressiveConfig } from "../config";
 import { ClientBuffer } from "./ClientBuffer";
-import { StreamService, AceStreamRequestResult } from "../stream";
+import { StreamService, AceStreamClient } from "../stream";
 import { Channel } from "../types";
 
 class Client {
@@ -17,7 +17,7 @@ class Client {
     private readonly idleTimer: Timer;
     private active: boolean
     private flushed: boolean;
-    private requestResult: AceStreamRequestResult | undefined;
+    private streamClient: AceStreamClient | undefined;
 
     constructor(
         request: Hapi.Request,
@@ -82,19 +82,14 @@ class Client {
     async init(): Promise<Hapi.ResponseObject | symbol> {
         this.logger.verbose("init");
 
-        const requestResult = await this.streamService.createRequest(this.channel);
-        const response = await requestResult.response$;
+        const streamClient = await this.streamService.addClient(this.channel);
 
         if (!this.request.active()) {
-            this.streamService.closeRequest(requestResult);
+            this.streamService.closeClient(streamClient);
             return this.h.close;
         }
 
-        if (!response || response.status !== 200) {
-            return this.h.response().code(502);
-        }
-
-        requestResult.stream.on("data", chunk => {
+        streamClient.stream.on("data", chunk => {
             if (this.active && this.flushed && this.buffer.isEmpty) {
                 this.writeResponse(chunk);
             }
@@ -103,18 +98,18 @@ class Client {
             }
         });
 
-        requestResult.stream.on("close", () => {
+        streamClient.stream.on("close", () => {
             this.close();
         });
 
-        requestResult.stream.on("finish", () => {
+        streamClient.stream.on("finish", () => {
             this.close();
         });
 
         this.active = true;
-        this.requestResult = requestResult;
+        this.streamClient = streamClient;
         this.idleTimer.start();
-        this.writeHeaders(response.headers);
+        this.writeHeaders(streamClient.responseHeaders);
         this.handleWriteOnDrain();
 
         return this.h.abandon;
@@ -131,8 +126,8 @@ class Client {
         this.idleTimer.stop();
         this.request.raw.res.destroy();
 
-        if (this.requestResult) {
-            this.streamService.closeRequest(this.requestResult);
+        if (this.streamClient) {
+            this.streamService.closeClient(this.streamClient);
         }
     }
 

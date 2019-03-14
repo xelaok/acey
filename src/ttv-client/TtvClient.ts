@@ -1,6 +1,6 @@
 import fetch from "node-fetch";
 import qs from "qs";
-import { createLogger, createRandomIdGenerator, stopWatch, forget, Logger } from "../base";
+import { createLogger, createRandomIdGenerator, stopWatch, forget, Logger, UserError, GatewayError } from "../base";
 import { TtvApiConfig } from "../config";
 import { AppData } from "../app-data";
 import { AceStreamSource, AceStreamSourceType } from "../ace-client";
@@ -48,10 +48,17 @@ class TtvClient {
             guid: guid,
         })}`;
 
-        const result = await fetch(url).then(res => res.json());
+        let result: any;
+
+        try {
+            result = await fetch(url).then(res => res.json());
+        }
+        catch (err) {
+            throw new GatewayError(err);
+        }
 
         if (!result.success) {
-            throw new Error(`TTV Auth error: ${result.error}`);
+            throw new UserError(`TTV auth error: ${result.error}`);
         }
 
         this.session = result.session;
@@ -109,23 +116,28 @@ class TtvClient {
             session: this.session,
         });
 
-        const res = await fetch(`${this.config.endpoint}/v3/${path}.php?${query}`, {
-            timeout: this.config.requestTimeout,
-        });
+        let content: string;
+        try {
+            const res = await fetch(`${this.config.endpoint}/v3/${path}.php?${query}`, {
+                timeout: this.config.requestTimeout,
+            });
 
-        const content = await res.text();
+            content = await res.text();
+        }
+        catch (err) {
+            throw new GatewayError(err.toString());
+        }
 
         let result: any;
-
         try {
             result = JSON.parse(content);
         }
         catch (err) {
-            throw new Error(`TTV API: can't parse content (path: "${path}", params: ${JSON.stringify(params || null)})\n\n${content}`);
+            throw new GatewayError(`TTV API: can't parse content (path: "${path}", params: ${JSON.stringify(params || null)})\n\n${content}`);
         }
 
         if (!result.success) {
-            throw new Error(`TTV API request error: ${result.error} (path: "${path}", params: ${JSON.stringify(params || null)})`);
+            throw new GatewayError(`TTV API request error: ${result.error} (path: "${path}", params: ${JSON.stringify(params || null)})`);
         }
 
         return result;

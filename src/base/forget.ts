@@ -6,7 +6,7 @@ function forget<T>(promiseOrFn: Promise<T> | (() => Promise<T>)): void {
         : promiseOrFn
     ;
 
-    promise.catch(err => logger.warn(err.stack));
+    promise.catch(err => logger.warn(err.stack || err));
 }
 
 export { forget }

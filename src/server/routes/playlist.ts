@@ -4,8 +4,9 @@ import { Dict, getBaseRequestPath } from "../../base";
 import { ServerConfig, PlaylistConfig } from "../../config";
 import { ChannelGroup } from "../../types";
 import { ChannelSources } from "../../channel-sources";
-import { buildPlaylist } from "../../playlist-util";
 import { formatSecureRoutePath } from "../utils/formatSecureRoutePath";
+import { createRouteHandler } from "../utils/createRouteHandler";
+import { buildPlaylist } from "../utils/buildPlaylist";
 
 function playlist(
     server: Server,
@@ -20,7 +21,7 @@ function playlist(
             "/{name}.m3u",
             serverConfig,
         ),
-        handler: (request: Request, h: ResponseToolkit) => {
+        handler: createRouteHandler(async (request: Request, h: ResponseToolkit) => {
             return handle(
                 request,
                 h,
@@ -30,7 +31,7 @@ function playlist(
                 playlistConfigs,
                 channelSources,
             );
-        },
+        }),
     });
 
     server.route({
@@ -39,7 +40,7 @@ function playlist(
             "/not/{name}.m3u",
             serverConfig,
         ),
-        handler: (request: Request, h: ResponseToolkit) => {
+        handler: createRouteHandler(async (request: Request, h: ResponseToolkit) => {
             return handle(
                 request,
                 h,
@@ -49,7 +50,7 @@ function playlist(
                 playlistConfigs,
                 channelSources,
             );
-        },
+        }),
     });
 }
 

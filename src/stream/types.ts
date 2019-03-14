@@ -1,9 +1,9 @@
 import { PassThrough } from "stream";
-import { Response } from "node-fetch";
+import { Headers } from "node-fetch";
 
-type AceStreamRequestResult = {
+type AceStreamClient = {
     stream: PassThrough;
-    response$: Promise<Response | null>;
+    responseHeaders: Headers;
 };
 
-export { AceStreamRequestResult }
+export { AceStreamClient }

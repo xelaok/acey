@@ -3,6 +3,7 @@ import { ServerConfig } from "../../config";
 import { ChannelRepository } from "../../channel-repository";
 import { ProgressiveService } from "../../progressive";
 import { formatSecureRoutePath } from "../utils/formatSecureRoutePath";
+import { createRouteHandler } from "../utils/createRouteHandler";
 import { parseChannel } from "../utils/parseChannel";
 
 function progressiveStream(
@@ -17,7 +18,7 @@ function progressiveStream(
             "/s/{channelSource}/{channelId}.ts",
             serverConfig,
         ),
-        handler: async (request: Request, h: ResponseToolkit) => {
+        handler: createRouteHandler(async (request: Request, h: ResponseToolkit) => {
             const channel = parseChannel(request, channelRepository);
 
             if (!channel) {
@@ -25,7 +26,7 @@ function progressiveStream(
             }
 
             return progressiveService.handleRequest(request, h, channel);
-        },
+        }),
     });
 }
 

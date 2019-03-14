@@ -24,22 +24,16 @@ class ProgressiveService {
         h: Hapi.ResponseToolkit,
         channel: Channel,
     ): Promise<Hapi.ResponseObject | symbol> {
-        try {
-            const client = new Client(
-                request,
-                h,
-                this.config,
-                channel,
-                this.streamService,
-                generateClientId().toString(),
-            );
+        const client = new Client(
+            request,
+            h,
+            this.config,
+            channel,
+            this.streamService,
+            generateClientId().toString(),
+        );
 
-            return client.init();
-        }
-        catch (err) {
-            logger.error(err.stack);
-            return h.response().code(500);
-        }
+        return client.init();
     }
 }
 

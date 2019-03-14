@@ -21,11 +21,11 @@ class PlaylistContextSegments {
     private start: number | null;
     private end: number | null;
 
-    constructor(profile: HlsProfile) {
+    constructor(profile: HlsProfile, initialSequence: number) {
         this.profile = profile;
         this.arr = [];
         this.map = new Map();
-        this.sequence = Date.now();
+        this.sequence = initialSequence;
         this.activeLength = 0;
         this.queuedLength = 0;
         this.unusedLength = 0;

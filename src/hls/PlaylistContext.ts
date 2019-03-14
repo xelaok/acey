@@ -14,7 +14,6 @@ import { PlaylistContextSegments, PlaylistContextSegment } from "./PlaylistConte
 const READ_SOURCE_PLAYLIST_HIGHWATERMARK = 1 << 16;
 const READ_SOURCE_PLAYLIST_CONTENT_HIGH_WATERMARK = 1 << 20;
 const UPDATE_PLAYLIST_INTERVAL = 1000;
-const PULL_SOURCE_PLAYLIST_INTERVAL = 100;
 
 class PlaylistContext {
     onClosed: (() => void) | undefined;
@@ -36,13 +35,19 @@ class PlaylistContext {
     private lastRequestTime: number | null;
     private maxRequestInterval: number | null;
 
-    constructor(profile: HlsProfile, stream: Readable, ffmpeg: FFmpegService, alias: string) {
+    constructor(
+        profile: HlsProfile,
+        stream: Readable,
+        ffmpeg: FFmpegService,
+        alias: string,
+        initialSequence: number,
+    ) {
         this.profile = profile;
         this.stream = stream;
         this.ffmpeg = ffmpeg;
         this.alias = alias;
         this.logger = createLogger(c => c`{magenta HLS > ${alias}}`);
-        this.segments = new PlaylistContextSegments(profile);
+        this.segments = new PlaylistContextSegments(profile, initialSequence);
         this.idleTimer = this.createIdleTimer();
         this.ffmpegWorker = this.createFfmpegWorker();
         this.activeFileReaders = new Set();
@@ -68,8 +73,6 @@ class PlaylistContext {
         });
 
         this.scheduleUpdatePlaylist();
-        this.schedulePullSourcePlaylist();
-
         await this.ffmpegWorker.open();
     }
 
@@ -111,7 +114,6 @@ class PlaylistContext {
 
         await this.pullSourcePlaylist("latest");
 
-        this.segments.update();
         const activeSegments = this.segments.extractActive();
         const queuedSegments = this.segments.extractQueued();
         const unusedSegments = this.segments.extractUnused();
@@ -190,38 +192,17 @@ class PlaylistContext {
                     return;
                 }
 
-                this.segments.update();
+                await this.pullSourcePlaylist("latest");
                 this.segments.removeOutdated();
-
                 this.scheduleUpdatePlaylist();
             },
             UPDATE_PLAYLIST_INTERVAL,
         );
     }
 
-    private schedulePullSourcePlaylist(): void {
-        global.setTimeout(
-            async () => {
-                const initialPlaylist = await this.initialSourcePlaylist$;
-
-                if (!initialPlaylist) {
-                    return;
-                }
-
-                if (!this.isOpened) {
-                    return;
-                }
-
-                await this.pullSourcePlaylist("updated");
-                await this.schedulePullSourcePlaylist();
-            },
-            PULL_SOURCE_PLAYLIST_INTERVAL,
-        );
-    }
-
-    private async pullSourcePlaylist(mode: "initial" | "updated" | "latest"): Promise<HlsPlaylist | null> {
+    private async pullSourcePlaylist(mode: "initial" | "latest"): Promise<HlsPlaylist | null> {
         while (true) {
-            const playlist = await this.readSourcePlaylist(mode === "updated");
+            const playlist = await this.readSourcePlaylist();
 
             if (!playlist) {
                 return null;
@@ -229,20 +210,15 @@ class PlaylistContext {
 
             this.pullSourceSegments(playlist);
 
-            if (mode === "initial") {
-                this.segments.update();
-                if (!this.segments.isReady()) {
-                    continue;
-                }
+            if (mode === "initial" && !this.segments.isReady()) {
+                continue;
             }
 
             return playlist;
         }
     }
 
-    private async readSourcePlaylist(updatedOnly: boolean): Promise<HlsPlaylist | null> {
-        const delayLoop = () => delay(PULL_SOURCE_PLAYLIST_INTERVAL);
-
+    private async readSourcePlaylist(): Promise<HlsPlaylist | null> {
         while (true) {
             if (!this.isOpened) {
                 return null;
@@ -264,11 +240,6 @@ class PlaylistContext {
             const content = buffer.toString();
             const isUpdated = content !== this.previousSourcePlaylistContent;
 
-            if (!isUpdated && updatedOnly) {
-                await delayLoop();
-                continue;
-            }
-
             if (!isUpdated && this.previousSourcePlaylist) {
                 return this.previousSourcePlaylist;
             }
@@ -276,7 +247,7 @@ class PlaylistContext {
             const playlist = parsePlaylist(content);
 
             if (!playlist) {
-                await delayLoop();
+                await delay(100);
                 continue;
             }
 
@@ -300,6 +271,7 @@ class PlaylistContext {
             this.segments.add(s, this.pullSourceSegment(s.name));
         }
 
+        this.segments.update();
         this.previousSourceSegmentNames = newSourceSegmentNames;
     }
 
@@ -387,17 +359,17 @@ class PlaylistContext {
         queuedSegments: PlaylistContextSegment[],
     ): void {
         this.logger.debug(c => {
-            const unusedCount = unusedSegments.length;
             const activeCount = activeSegments.length;
             const queuedCount = queuedSegments.length;
+            const unusedCount = unusedSegments.length;
 
-            const unusedLength = sumBy(unusedSegments, s => s.length);
             const activeLength = sumBy(activeSegments, s => s.length);
             const queuedLength = sumBy(queuedSegments, s => s.length);
+            const unusedLength = sumBy(unusedSegments, s => s.length);
 
-            const unusedText = c`{bold ${(unusedLength / 1e3).toFixed(2)}s} ({bold ${unusedCount.toString()}})`;
             const activeText = c`{bold ${(activeLength / 1e3).toFixed(2)}s} ({bold ${activeCount.toString()}})`;
             const queuedText = c`{bold ${(queuedLength / 1e3).toFixed(2)}s} ({bold ${queuedCount.toString()}})`;
+            const unusedText = c`{bold ${(unusedLength / 1e3).toFixed(2)}s} ({bold ${unusedCount.toString()}})`;
 
             return c`{bold playlist} (ms: {bold ${mediaSequence.toString()}}, td: {bold ${targetDuration.toString()}}, a: ${activeText}, q: ${queuedText}, u: ${unusedText})`;
         });

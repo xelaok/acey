@@ -3,6 +3,7 @@ export * from "./ChildProcessHelper";
 export * from "./consts";
 export * from "./delay";
 export * from "./env";
+export * from "./errors";
 export * from "./fetchContent";
 export * from "./fetchRedirects";
 export * from "./forget";

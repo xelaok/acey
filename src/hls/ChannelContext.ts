@@ -1,65 +1,77 @@
 import Hapi from "hapi";
-import { createLogger, getMimeType, forget, Logger } from "../base";
+import { createLogger, getMimeType, forget, Logger, GatewayError } from "../base";
 import { HlsProfile } from "../config";
 import { FFmpegService } from "../ffmpeg";
-import { StreamService, AceStreamRequestResult } from "../stream";
+import { StreamService, AceStreamClient } from "../stream";
 import { Channel } from "../types";
 import { PlaylistContext } from "./PlaylistContext";
 
 type InitResult = {
+    streamClient: AceStreamClient;
     playlistContext: PlaylistContext;
-    streamRequestResult: AceStreamRequestResult;
 };
 
 class ChannelContext {
     onClosed: (() => void) | undefined;
 
     private readonly channel: Channel;
+    private readonly initialSequence: number;
     private readonly profile: HlsProfile;
     private readonly ffmpegService: FFmpegService;
     private readonly streamService: StreamService;
     private readonly logger: Logger;
-    private isOpened: boolean;
     private initResult$: Promise<InitResult | null> | null;
 
     constructor(
         channel: Channel,
+        initialSequence: number,
         profile: HlsProfile,
         ffmpegService: FFmpegService,
         streamService: StreamService,
     ) {
         this.channel = channel;
+        this.initialSequence = initialSequence;
         this.profile = profile;
         this.ffmpegService = ffmpegService;
         this.streamService = streamService;
         this.logger = createLogger(c => c`{magenta HLS > ${channel.name}}`);
-        this.isOpened = false;
         this.initResult$ = null;
     }
 
     open(): void {
-        if (this.isOpened) {
+        if (this.initResult$) {
             return;
         }
 
         this.logger.verbose("open");
-        this.isOpened = true;
         this.initResult$ = this.init();
+
+        this.initResult$.then(result => {
+            if (!result) {
+                this.closeSelf();
+            }
+        });
     }
 
     async close(): Promise<void> {
-        if (!this.isOpened) {
+        if (!this.initResult$) {
             return;
         }
 
         this.logger.verbose("close");
-        this.isOpened = false;
-        const initResult = await this.initResult$;
 
-        if (initResult) {
-            this.streamService.closeRequest(initResult.streamRequestResult);
-            await initResult.playlistContext.close();
-        }
+        const promise = this.initResult$.then(async (result) => {
+           if (!result) {
+               return;
+           }
+
+           this.streamService.closeClient(result.streamClient);
+           await result.playlistContext.close();
+        });
+
+        this.initResult$ = null;
+
+        return promise;
     }
 
     async handleRequest(
@@ -67,6 +79,10 @@ class ChannelContext {
         h: Hapi.ResponseToolkit,
         filename: string,
     ): Promise<Hapi.ResponseObject | symbol> {
+        if (!this.initResult$) {
+            throw new Error("Can't create a request for a non-open channel.");
+        }
+
         const initResult = await this.initResult$;
 
         if (!request.active()) {
@@ -77,7 +93,6 @@ class ChannelContext {
             return h.response().code(502);
         }
 
-        const mimeType = getMimeType(filename);
         const content = await initResult.playlistContext.getContent(filename);
 
         if (!request.active()) {
@@ -88,29 +103,28 @@ class ChannelContext {
             return h.response().code(404);
         }
 
-        let result = h.response(content);
-
-        if (mimeType) {
-            result = result.type(mimeType);
-        }
-
-        return result;
+        return h.response(content).type(getMimeType(filename) || "");
     }
 
     private async init(): Promise<InitResult | null> {
-        const streamRequestResult = await this.streamService.createRequest(this.channel);
-        const response = await streamRequestResult.response$;
+        let streamClient;
 
-        if (!response || response.status !== 200) {
-            this.closeSelf();
-            return null;
+        try {
+            streamClient = await this.streamService.addClient(this.channel);
+        }
+        catch (err) {
+            if (err instanceof GatewayError) {
+                return null;
+            }
+            throw err;
         }
 
         const playlistContext = new PlaylistContext(
             this.profile,
-            streamRequestResult.stream,
+            streamClient.stream,
             this.ffmpegService,
             this.channel.name,
+            this.initialSequence,
         );
 
         playlistContext.onClosed = async () => {
@@ -119,7 +133,7 @@ class ChannelContext {
 
         await playlistContext.open();
 
-        return { streamRequestResult, playlistContext };
+        return { streamClient, playlistContext };
     }
 
     private closeSelf(): void {

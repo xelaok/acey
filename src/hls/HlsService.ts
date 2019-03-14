@@ -10,6 +10,7 @@ class HlsService {
     private readonly ffmpegService: FFmpegService;
     private readonly streamService: StreamService;
     private readonly channelContexts: Map<string, ChannelContext>;
+    private readonly initialSequenceTime: number;
 
     constructor(
         hlsConfig: HlsConfig,
@@ -20,6 +21,7 @@ class HlsService {
         this.ffmpegService = ffmpegService;
         this.streamService = streamService;
         this.channelContexts = new Map();
+        this.initialSequenceTime = Date.now();
     }
 
     async handleRequest(
@@ -57,6 +59,7 @@ class HlsService {
         if (!context) {
             context = new ChannelContext(
                 channel,
+                Date.now() - this.initialSequenceTime,
                 profile,
                 this.ffmpegService,
                 this.streamService,
