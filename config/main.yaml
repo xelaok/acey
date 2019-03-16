@@ -11,14 +11,14 @@ aceApi:
     requestTimeout: 1m
 
 ttvApi:
-    username: username
-    password: password
+    username: ~
+    password: ~
     endpoint: http://api.torrent-tv.ru
-    requestTimeout: 1m
+    requestTimeout: 20s
 
 stream:
     stopDelay: 3s
-    responseTimeout: 2m
+    responseTimeout: 30s
     sharedBufferLength: 20s
 
 ffmpeg:
