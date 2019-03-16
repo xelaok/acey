@@ -1,6 +1,6 @@
 {
     "name": "acey",
-    "version": "2.3.0",
+    "version": "2.4.0",
     "private": true,
     "scripts": {
         "start": "node .",
@@ -10,7 +10,9 @@
         "build-debug": "webpack --env.buildMode=debug --progress --color --display=minimal",
         "watch-debug": "webpack --env.buildMode=debug --progress --color --display=minimal -w",
         "build-release": "webpack --env.buildMode=release --progress --color --display=minimal",
-        "watch-release": "webpack --env.buildMode=release --progress --color --display=minimal -w"
+        "watch-release": "webpack --env.buildMode=release --progress --color --display=minimal -w",
+        "dev": "node . dev",
+        "inspect": "node --inspect . dev"
     },
     "engines": {
         "node": "^8"

@@ -1,13 +1,14 @@
 import Hapi from "hapi";
-import { createLogger, getMimeType, forget, Logger, GatewayError } from "../base";
+import { createLogger, getMimeType, forget, Logger } from "../base";
 import { HlsProfile } from "../config";
 import { FFmpegService } from "../ffmpeg";
-import { StreamService, AceStreamClient } from "../stream";
+import { StreamService, StreamContext, StreamClient } from "../stream";
 import { Channel } from "../types";
 import { PlaylistContext } from "./PlaylistContext";
 
 type InitResult = {
-    streamClient: AceStreamClient;
+    streamContext: StreamContext;
+    streamClient: StreamClient;
     playlistContext: PlaylistContext;
 };
 
@@ -20,7 +21,7 @@ class ChannelContext {
     private readonly ffmpegService: FFmpegService;
     private readonly streamService: StreamService;
     private readonly logger: Logger;
-    private initResult$: Promise<InitResult | null> | null;
+    private initResult$: Promise<InitResult> | null;
 
     constructor(
         channel: Channel,
@@ -44,12 +45,10 @@ class ChannelContext {
         }
 
         this.logger.verbose("open");
-        this.initResult$ = this.init();
 
-        this.initResult$.then(result => {
-            if (!result) {
-                this.closeSelf();
-            }
+        this.initResult$ = this.init().catch(err => {
+            this.closeSelf();
+            throw err;
         });
     }
 
@@ -61,12 +60,8 @@ class ChannelContext {
         this.logger.verbose("close");
 
         const promise = this.initResult$.then(async (result) => {
-           if (!result) {
-               return;
-           }
-
-           this.streamService.closeClient(result.streamClient);
-           await result.playlistContext.close();
+            result.streamContext.deleteClient(result.streamClient);
+            await result.playlistContext.close();
         });
 
         this.initResult$ = null;
@@ -106,18 +101,12 @@ class ChannelContext {
         return h.response(content).type(getMimeType(filename) || "");
     }
 
-    private async init(): Promise<InitResult | null> {
+    private async init(): Promise<InitResult> {
+        let streamContext;
         let streamClient;
 
-        try {
-            streamClient = await this.streamService.addClient(this.channel);
-        }
-        catch (err) {
-            if (err instanceof GatewayError) {
-                return null;
-            }
-            throw err;
-        }
+        streamContext = await this.streamService.getContext(this.channel);
+        streamClient = await streamContext.createClient();
 
         const playlistContext = new PlaylistContext(
             this.profile,
@@ -133,7 +122,7 @@ class ChannelContext {
 
         await playlistContext.open();
 
-        return { streamClient, playlistContext };
+        return { streamContext, streamClient, playlistContext };
     }
 
     private closeSelf(): void {

@@ -59,7 +59,7 @@ class HlsService {
         if (!context) {
             context = new ChannelContext(
                 channel,
-                Date.now() - this.initialSequenceTime,
+                Math.floor((Date.now() - this.initialSequenceTime) / 1000),
                 profile,
                 this.ffmpegService,
                 this.streamService,

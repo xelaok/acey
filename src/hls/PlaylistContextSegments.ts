@@ -179,11 +179,15 @@ class PlaylistContextSegments {
 
         const limitActiveToMaxLength = () => {
             while (true) {
-                if (activeLength <= this.profile.maxListLength) {
+                if (activeLength === 0) {
                     break;
                 }
 
                 const endSegment = this.arr[end];
+
+                if (activeLength - endSegment.length < this.profile.maxListLength) {
+                    break;
+                }
 
                 end -= 1;
                 activeLength -= endSegment.length;

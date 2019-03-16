@@ -1,7 +1,6 @@
-import nodeCleanup from "node-cleanup";
 import urlJoin from "url-join";
 import { sortBy } from "lodash";
-import { logger, setupLogger, forget } from "./base";
+import { logger, setupLogger, handleCleanup, handleExceptions } from "./base";
 import { readConfig, Config } from "./config";
 import { AppData } from "./app-data";
 import { AceClient } from "./ace-client";
@@ -15,7 +14,7 @@ import { HlsService } from "./hls";
 import { Server } from "./server";
 
 main().catch(err => {
-    logger.error(err.stack);
+    logger.error(err.stack || err);
 });
 
 async function main(): Promise<void> {
@@ -79,12 +78,18 @@ async function main(): Promise<void> {
     logConfig(config, appData);
 
     await appData.init();
-    await ttvClient.auth();
     await channelSources.open();
     await server.start();
 
     handleExceptions();
-    handleCleanup(channelSources, streamService, hlsService);
+
+    handleCleanup(() => {
+        return Promise.all([
+            hlsService.close(),
+            streamService.close(),
+            channelSources.close(),
+        ]);
+    });
 
     logPlaylists(config);
     logger.info("Ready");
@@ -113,54 +118,4 @@ function logPlaylists(config: Config): void {
     logger.info(`Playlists:`, c => names.map(name =>
         c`{bold ${urlJoin("/", config.server.accessToken, name + ".m3u")}}`
     ));
-}
-
-function handleExceptions(): void {
-    process.on("uncaughtException", err => {
-        logger.warn(c => c`{bold Uncaught Exception}`);
-        logger.warn(err.stack);
-    });
-
-    process.on("unhandledRejection", err => {
-        logger.warn(c => c`{bold Unhandled Rejection}`);
-        logger.warn(err.stack || err);
-    });
-}
-
-function handleCleanup(
-    channelSources: ChannelSources,
-    streamService: StreamService,
-    hlsService: HlsService,
-): void {
-    nodeCleanup((exitCode, signal) => {
-        console.log("");
-
-        if (!signal) {
-            return true;
-        }
-
-        nodeCleanup.uninstall();
-
-        forget(async () => {
-            logger.info("Cleaning up...");
-            try {
-                await Promise.all([
-                    hlsService.close(),
-                    streamService.close(),
-                    channelSources.close(),
-                ]);
-
-                logger.info("Done.");
-            }
-            catch(err) {
-                logger.error(err.stack || err);
-                logger.info("Done with errors.");
-            }
-            finally {
-                process.kill(process.pid, signal);
-            }
-        });
-
-        return false;
-    });
 }

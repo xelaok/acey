@@ -1,11 +1,9 @@
-import nanoid from "nanoid";
-import { createLogger, stopWatch, Logger } from "../base";
+import { createLogger, handleWithRetry, Logger } from "../base";
 import { StreamConfig } from "../config";
-import { AceClient, AceStreamSource, AceStreamInfo } from "../ace-client";
+import { AceClient, AceStreamSource } from "../ace-client";
 import { TtvClient } from "../ttv-client";
 import { Channel, ChannelSource, AceChannel } from "../types";
 import { StreamContext } from "./StreamContext";
-import { AceStreamClient } from "./types";
 
 class StreamService {
     private readonly config: StreamConfig;
@@ -13,7 +11,7 @@ class StreamService {
     private readonly ttvClient: TtvClient;
     private readonly logger: Logger;
     private readonly contextsBySource: Map<string, StreamContext>;
-    private readonly contextsByPlaybackId: Map<string, StreamContext>;
+    private readonly contextsByInfohash: Map<string, StreamContext>;
 
     constructor(config: StreamConfig, aceClient: AceClient, ttvClient: TtvClient) {
         this.config = config;
@@ -21,19 +19,14 @@ class StreamService {
         this.ttvClient = ttvClient;
         this.logger = createLogger(c => c`{green Stream}`);
         this.contextsBySource = new Map();
-        this.contextsByPlaybackId = new Map();
+        this.contextsByInfohash = new Map();
     }
 
-    async addClient(channel: Channel): Promise<AceStreamClient> {
+    async getContext(channel: Channel): Promise<StreamContext> {
         const source = await this.resolveSource(channel);
         const context = await this.resolveContext(source, channel.name);
-        const client = await context.addClient();
 
-        return client;
-    }
-
-    closeClient(client: AceStreamClient): void {
-        client.stream.end();
+        return context;
     }
 
     async close(): Promise<void> {
@@ -41,13 +34,23 @@ class StreamService {
         await Promise.all(streams.map(s => s.close()));
     }
 
-    private async resolveSource(channel: Channel): Promise<AceStreamSource> {
+    private resolveSource(channel: Channel): Promise<AceStreamSource> {
         switch (channel.source) {
             case ChannelSource.Ace:
-                return (channel as AceChannel).streamSource;
+                return Promise.resolve((channel as AceChannel).streamSource);
 
             case ChannelSource.Ttv:
-                return await this.ttvClient.getAceStreamSource(channel.id);
+                return handleWithRetry(
+                    retryNum => {
+                        if (retryNum > 0) {
+                            this.logger.warn(c => c`ttv request retry {bold ${retryNum.toString()}}`);
+                        }
+
+                        return this.ttvClient.getAceStreamSource(channel.id);
+                    },
+                    500,
+                    2,
+                );
 
             default:
                 throw new Error(`Unknown channel source: ${channel.source}`);
@@ -61,57 +64,32 @@ class StreamService {
             return context;
         }
 
-        const info = await this.getStreamInfo(source, alias);
-        context = this.contextsByPlaybackId.get(info.playbackId);
+        const stream = await this.aceClient.requestStream(source, alias);
+        context = this.contextsByInfohash.get(stream.infohash);
 
         if (context) {
-            context.updateInfo(info);
             return context;
         }
 
         context = new StreamContext(
             this.config,
-            source,
-            info,
+            stream,
             alias,
             this.aceClient,
         );
 
         this.contextsBySource.set(source.value, context);
-        this.contextsByPlaybackId.set(info.playbackId, context);
+        this.contextsByInfohash.set(stream.infohash, context);
 
         context.onClosed = () => {
             this.logger.debug(c => c`remove {bold ${alias}}`);
             this.contextsBySource.delete(source.value);
-            this.contextsByPlaybackId.delete(info.playbackId);
+            this.contextsByInfohash.delete(stream.infohash);
         };
 
         context.open();
 
         return context;
-    }
-
-    private async getStreamInfo(source: AceStreamSource, alias: string): Promise<AceStreamInfo> {
-        this.logger.debug(c => c`{cyan ace engine} > request info for {bold ${alias}} ..`);
-
-        try {
-            const { timeText, result } = await stopWatch(() => {
-                return this.aceClient.getStreamInfo(source, nanoid());
-            });
-
-            this.logger.debug(c => c`{cyan ace engine} > request info for {bold ${alias}} > response`, c => [
-                c`request time: {bold ${timeText}}`
-            ]);
-
-            return result;
-        }
-        catch (err) {
-            this.logger.warn(
-                c => c`{cyan ace engine} > request info for {bold ${alias}} > failed`,
-                [`error: ${err}`],
-            );
-            throw err;
-        }
     }
 }
 

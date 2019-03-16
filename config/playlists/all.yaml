@@ -1,0 +1,4 @@
+filter: ~
+format: verbose
+protocol: progressive
+channelSources: ttv, ace

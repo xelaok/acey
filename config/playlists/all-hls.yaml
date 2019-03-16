@@ -1,0 +1,4 @@
+filter: ~
+format: verbose
+protocol: hls/v3
+channelSources: ttv, ace

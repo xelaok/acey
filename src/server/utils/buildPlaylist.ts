@@ -41,12 +41,18 @@ function buildPlaylist(
 
         result += `,${si.channel.name}`;
 
+        let titleDetails = "";
+
         if (playlistFormat.includeGroupName && groupTitle) {
-            result += ` (${groupTitle})`;
+            titleDetails += groupTitle;
         }
 
         if (playlistFormat.includeSourceLabel) {
-            result += ` | ${si.sourceLabel}`;
+            titleDetails += (titleDetails ? " | " : "") + si.sourceLabel;
+        }
+
+        if (titleDetails) {
+            result += " (" + titleDetails + ")";
         }
 
         result += CRLF;

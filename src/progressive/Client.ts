@@ -3,7 +3,7 @@ import { Headers } from "node-fetch";
 import { createLogger, Logger, Timer } from "../base";
 import { ProgressiveConfig } from "../config";
 import { ClientBuffer } from "./ClientBuffer";
-import { StreamService, AceStreamClient } from "../stream";
+import { StreamService, StreamContext, StreamClient } from "../stream";
 import { Channel } from "../types";
 
 class Client {
@@ -17,7 +17,8 @@ class Client {
     private readonly idleTimer: Timer;
     private active: boolean
     private flushed: boolean;
-    private streamClient: AceStreamClient | undefined;
+    private streamContext: StreamContext | undefined;
+    private streamClient: StreamClient | undefined;
 
     constructor(
         request: Hapi.Request,
@@ -82,10 +83,11 @@ class Client {
     async init(): Promise<Hapi.ResponseObject | symbol> {
         this.logger.verbose("init");
 
-        const streamClient = await this.streamService.addClient(this.channel);
+        const streamContext = await this.streamService.getContext(this.channel);
+        const streamClient = await streamContext.createClient();
 
         if (!this.request.active()) {
-            this.streamService.closeClient(streamClient);
+            streamContext.deleteClient(streamClient);
             return this.h.close;
         }
 
@@ -107,6 +109,7 @@ class Client {
         });
 
         this.active = true;
+        this.streamContext = streamContext;
         this.streamClient = streamClient;
         this.idleTimer.start();
         this.writeHeaders(streamClient.responseHeaders);
@@ -126,8 +129,8 @@ class Client {
         this.idleTimer.stop();
         this.request.raw.res.destroy();
 
-        if (this.streamClient) {
-            this.streamService.closeClient(this.streamClient);
+        if (this.streamContext && this.streamClient) {
+            this.streamContext.deleteClient(this.streamClient);
         }
     }
 

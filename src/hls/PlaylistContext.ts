@@ -14,6 +14,7 @@ import { PlaylistContextSegments, PlaylistContextSegment } from "./PlaylistConte
 const READ_SOURCE_PLAYLIST_HIGHWATERMARK = 1 << 16;
 const READ_SOURCE_PLAYLIST_CONTENT_HIGH_WATERMARK = 1 << 20;
 const UPDATE_PLAYLIST_INTERVAL = 1000;
+const PULL_SOURCE_PLAYLIST_INTERVAL = 100;
 
 class PlaylistContext {
     onClosed: (() => void) | undefined;
@@ -25,15 +26,13 @@ class PlaylistContext {
     private readonly logger: Logger;
     private readonly segments: PlaylistContextSegments;
     private readonly idleTimer: Timer;
-    private readonly ffmpegWorker: FFmpegTask;
+    private readonly ffmpegTask: FFmpegTask;
     private readonly activeFileReaders: Set<ScheduledFileReader>;
     private isOpened: boolean;
     private initialSourcePlaylist$: Promise<HlsPlaylist | null> | undefined;
     private previousSourcePlaylist: HlsPlaylist | undefined;
     private previousSourcePlaylistContent: string | undefined;
     private previousSourceSegmentNames: Set<string> | undefined;
-    private lastRequestTime: number | null;
-    private maxRequestInterval: number | null;
 
     constructor(
         profile: HlsProfile,
@@ -49,11 +48,9 @@ class PlaylistContext {
         this.logger = createLogger(c => c`{magenta HLS > ${alias}}`);
         this.segments = new PlaylistContextSegments(profile, initialSequence);
         this.idleTimer = this.createIdleTimer();
-        this.ffmpegWorker = this.createFfmpegWorker();
+        this.ffmpegTask = this.createFfmpegTask();
         this.activeFileReaders = new Set();
         this.isOpened = false;
-        this.lastRequestTime = null;
-        this.maxRequestInterval = null;
     }
 
     async open(): Promise<void> {
@@ -73,7 +70,9 @@ class PlaylistContext {
         });
 
         this.scheduleUpdatePlaylist();
-        await this.ffmpegWorker.open();
+        this.schedulePullSourcePlaylist();
+
+        await this.ffmpegTask.open();
     }
 
     async close(): Promise<void> {
@@ -88,7 +87,7 @@ class PlaylistContext {
             reader.cancel();
         }
 
-        await this.ffmpegWorker.close();
+        await this.ffmpegTask.close();
     }
 
     getContent(name: string): Promise<Buffer | string | null> {
@@ -97,7 +96,6 @@ class PlaylistContext {
         }
 
         this.idleTimer.reset();
-        this.trackMaxRequestInterval();
 
         return name === HLS_PLAYLIST_NAME
             ? this.getPlaylist()
@@ -114,6 +112,7 @@ class PlaylistContext {
 
         await this.pullSourcePlaylist("latest");
 
+        this.segments.update();
         const activeSegments = this.segments.extractActive();
         const queuedSegments = this.segments.extractQueued();
         const unusedSegments = this.segments.extractUnused();
@@ -157,7 +156,7 @@ class PlaylistContext {
         return content;
     }
 
-    private createFfmpegWorker(): FFmpegTask {
+    private createFfmpegTask(): FFmpegTask {
         const hlsTime = Math.ceil(this.profile.segmentLength / 1000);
         const hlsListSize = 32;
 
@@ -167,13 +166,13 @@ class PlaylistContext {
             index: HLS_PLAYLIST_NAME,
         });
 
-        const worker = this.ffmpeg.createTask(ffmpegArgs, this.stream, this.alias);
+        const task = this.ffmpeg.createTask(ffmpegArgs, this.stream, this.alias);
 
-        worker.onClosed = async () => {
+        task.onClosed = async () => {
             this.closeSelf();
         };
 
-        return worker;
+        return task;
     }
 
     private createIdleTimer(): Timer {
@@ -192,17 +191,38 @@ class PlaylistContext {
                     return;
                 }
 
-                await this.pullSourcePlaylist("latest");
+                this.segments.update();
                 this.segments.removeOutdated();
+
                 this.scheduleUpdatePlaylist();
             },
             UPDATE_PLAYLIST_INTERVAL,
         );
     }
 
-    private async pullSourcePlaylist(mode: "initial" | "latest"): Promise<HlsPlaylist | null> {
+    private schedulePullSourcePlaylist(): void {
+        global.setTimeout(
+            async () => {
+                const initialPlaylist = await this.initialSourcePlaylist$;
+
+                if (!initialPlaylist) {
+                    return;
+                }
+
+                if (!this.isOpened) {
+                    return;
+                }
+
+                await this.pullSourcePlaylist("updated");
+                await this.schedulePullSourcePlaylist();
+            },
+            PULL_SOURCE_PLAYLIST_INTERVAL,
+        );
+    }
+
+    private async pullSourcePlaylist(mode: "initial" | "latest" | "updated"): Promise<HlsPlaylist | null> {
         while (true) {
-            const playlist = await this.readSourcePlaylist();
+            const playlist = await this.readSourcePlaylist(mode === "updated");
 
             if (!playlist) {
                 return null;
@@ -210,15 +230,18 @@ class PlaylistContext {
 
             this.pullSourceSegments(playlist);
 
-            if (mode === "initial" && !this.segments.isReady()) {
-                continue;
+            if (mode === "initial") {
+                this.segments.update();
+                if (!this.segments.isReady()) {
+                    continue;
+                }
             }
 
             return playlist;
         }
     }
 
-    private async readSourcePlaylist(): Promise<HlsPlaylist | null> {
+    private async readSourcePlaylist(updatedOnly: boolean): Promise<HlsPlaylist | null> {
         while (true) {
             if (!this.isOpened) {
                 return null;
@@ -240,6 +263,11 @@ class PlaylistContext {
             const content = buffer.toString();
             const isUpdated = content !== this.previousSourcePlaylistContent;
 
+            if (!isUpdated && updatedOnly) {
+                await delay(PULL_SOURCE_PLAYLIST_INTERVAL);
+                continue;
+            }
+
             if (!isUpdated && this.previousSourcePlaylist) {
                 return this.previousSourcePlaylist;
             }
@@ -247,7 +275,10 @@ class PlaylistContext {
             const playlist = parsePlaylist(content);
 
             if (!playlist) {
-                await delay(100);
+                this.logger.silly("Can't parse source playlist, content:");
+                this.logger.silly(content);
+
+                await delay(PULL_SOURCE_PLAYLIST_INTERVAL);
                 continue;
             }
 
@@ -271,7 +302,6 @@ class PlaylistContext {
             this.segments.add(s, this.pullSourceSegment(s.name));
         }
 
-        this.segments.update();
         this.previousSourceSegmentNames = newSourceSegmentNames;
     }
 
@@ -290,7 +320,7 @@ class PlaylistContext {
     }
 
     private resolveFilePath(name: string): string {
-        return path.join(this.ffmpegWorker.workingDirectory, name);
+        return path.join(this.ffmpegTask.workingDirectory, name);
     }
 
     private formatPlaylist(
@@ -333,24 +363,6 @@ class PlaylistContext {
         return lines.join(CRLF);
     }
 
-    private trackMaxRequestInterval(): void {
-        const currentTime = Date.now();
-
-        if (this.lastRequestTime !== null && this.maxRequestInterval !== null) {
-            const interval = currentTime - this.lastRequestTime;
-
-            if (interval > this.maxRequestInterval) {
-                this.maxRequestInterval = interval;
-                this.logger.silly(c => c`{yellow max request interval: {bold ${(interval / 1000).toFixed(2)}s}}`);
-            }
-        }
-        else {
-            this.maxRequestInterval = 0;
-        }
-
-        this.lastRequestTime = currentTime;
-    }
-
     private logPlaylist(
         mediaSequence: number,
         targetDuration: number,
@@ -378,8 +390,9 @@ class PlaylistContext {
     private logSegment(segment: PlaylistContextSegment, size: number): void {
         const sizeText = `${(size / (1 << 20)).toFixed(2)} MiB`;
         const lengthText = `${(segment.length / 1e3).toFixed(2)}s`;
+        const bitrateText = `${((size * 8 / 1e6) / (segment.length / 1e3)).toFixed(2)} mbit/s`;
 
-        this.logger.debug(c => c`{bold ${segment.name}} ({bold ${lengthText}}, {bold ${sizeText}})`);
+        this.logger.debug(c => c`{bold ${segment.name}} ({bold ${lengthText}}, {bold ${sizeText}}, {bold ${bitrateText}})`);
     }
 }
 

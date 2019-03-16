@@ -1,12 +1,14 @@
 import urljoin from "url-join";
-import fetch, { Response } from "node-fetch";
-import { createLogger, stopWatch, Logger } from "../base";
+import fetch, { Response, FetchError } from "node-fetch";
+import { handleWithRetry, createRandomIdGenerator, createLogger, stopWatch, Logger } from "../base";
 import { AceApiConfig } from "../config";
-import { AceStreamSource, AceStreamInfo } from "./types";
-import { extractPlaybackId } from "./utils/extractPlaybackId";
-import { normalizeIProxyUrl } from "./utils/normalizeIProxyUrl";
+import { AceStreamSource, AceStream } from "./types";
+import { AceApiError, RequestTimeoutAceApiError } from "./errors";
 import { formatStreamSourceQuery } from "./utils/formatStreamSourceQuery";
-import { AceApiError } from "./errors";
+import { fetchRedirectUrl } from "./utils/fetchRedirectUrl";
+import { parseInfohash } from "./utils/parseInfohash";
+
+const generateSid = createRandomIdGenerator(62, 16);
 
 class AceClient {
     private readonly config: AceApiConfig;
@@ -14,53 +16,111 @@ class AceClient {
 
     constructor(config: AceApiConfig) {
         this.config = config;
-        this.logger = createLogger(c => c`{cyan Ace Client}`);
+        this.logger = createLogger(c => c`{cyan Ace}`);
     }
 
-    async getStreamInfo(source: AceStreamSource, sid: string): Promise<AceStreamInfo> {
-        const url = this.formatApiUrl(
-            `getstream?${formatStreamSourceQuery(source, sid)}&.mp4&format=json`,
-        );
-
-        const res = await this.makeRequest(url);
-        const data = await res.json();
-
-        if (data.error) {
-            throw new AceApiError(data.error);
-        }
-
-        return {
-            isLive: !!data.response["is_live"],
-            statUrl: normalizeIProxyUrl(this.config.endpoint, data.response["stat_url"]),
-            commandUrl: normalizeIProxyUrl(this.config.endpoint, data.response["command_url"]),
-            playbackId: extractPlaybackId(data.response["playback_url"]),
-            playbackUrl: normalizeIProxyUrl(this.config.endpoint, data.response["playback_url"]),
-            playbackSessionId: data.response["playback_session_id"],
-        };
-    }
-
-    async getStream(info: AceStreamInfo): Promise<Response> {
-        return this.makeRequest(info.playbackUrl);
-    }
-
-    async stopStream(info: AceStreamInfo): Promise<Response> {
-        this.logger.debug(c => c`stop stream ..`);
+    async requestStream(source: AceStreamSource, alias: string): Promise<AceStream> {
+        const logger = this.createChannelLogger(`request ${alias}`);
+        logger.debug("..");
         try {
-            const { timeText, result: response } = await stopWatch(async () => {
-                return this.makeRequest(`${info.commandUrl}?method=stop`);
+            const sid = generateSid();
+
+            const { timeText, result: redirectUrl } = await stopWatch(() => {
+                return handleWithRetry(
+                    retryNum => {
+                        if (retryNum > 0) {
+                            logger.debug(c => c`.. retry {bold ${retryNum.toString()}}`);
+                        }
+
+                        return fetchRedirectUrl(
+                            this.formatApiUrl(`getstream?${formatStreamSourceQuery(source, sid)}&.mp4`),
+                            this.config.endpoint,
+                            this.config.requestTimeout,
+                        );
+                    },
+                    1000, 2,
+                );
             });
 
-            this.logger.debug(c => c`stop stream > success: {bold ${response.status.toString()}} ({bold ${timeText}})`);
+            const infohash = parseInfohash(redirectUrl);
+            const commandUrl = redirectUrl.replace("/r/", "/cmd/");
+
+            const result = {
+                infohash,
+                redirectUrl,
+                commandUrl,
+            };
+
+            logger.debug(c => c`success ({bold ${timeText}})`);
+            return result;
         }
         catch (err) {
-            this.logger.debug(c => c`stop stream > failed: {yellow ${err.toString()}}`);
-        }
+            switch (true) {
+                case err instanceof RequestTimeoutAceApiError:
+                    logger.debug(c => c`{yellow timeout}`);
+                    break;
+                default:
+                    logger.warn(c => c`failed:`, [err.toString()]);
+                    break;
+            }
 
-        return this.makeRequest(`${info.commandUrl}?method=stop`);
+            throw err;
+        }
+    }
+
+    async requestStreamContent(stream: AceStream, alias: string): Promise<Response> {
+        const logger = this.createChannelLogger(`request ${alias} content`);
+        logger.debug("..")
+        try {
+            const { result: response, timeText } = await stopWatch(() => {
+                return this.makeRequest(stream.redirectUrl);
+            });
+
+            logger.debug(c => c`success ({bold ${timeText}})`);
+            return response;
+        }
+        catch (err) {
+            switch (true) {
+                case err instanceof RequestTimeoutAceApiError:
+                    logger.debug(c => c`{yellow timeout}`);
+                    break;
+                default:
+                    logger.warn(c => c`failed:`, [err.toString()]);
+                    break;
+            }
+
+            throw err;
+        }
+    }
+
+    async requestStopStream(stream: AceStream, alias: string): Promise<void> {
+        const logger = this.createChannelLogger(`request stop ${alias}`);
+        logger.debug("..");
+        try {
+            const { timeText, result: response } = await stopWatch(async () => {
+                return this.makeRequest(`${stream.commandUrl}?method=stop`);
+            });
+
+            logger.debug(c => c`success: {bold ${response.status.toString()}} ({bold ${timeText}})`);
+        }
+        catch (err) {
+            switch (true) {
+                case err instanceof RequestTimeoutAceApiError:
+                    logger.debug(c => c`{yellow timeout}`);
+                    break;
+                default:
+                    logger.warn(c => c`failed:`, [err.toString()]);
+                    break;
+            }
+        }
     }
 
     private formatApiUrl(path: string): string {
         return urljoin(this.config.endpoint, "ace", path);
+    }
+
+    private createChannelLogger(alias: string): Logger {
+        return createLogger(c => c`{cyan ${this.logger.prefix} > ${alias}}`);
     }
 
     private async makeRequest(url: string): Promise<Response> {
@@ -72,7 +132,14 @@ class AceClient {
             });
         }
         catch (err) {
-            throw new AceApiError(err.toString());
+            switch (true) {
+                case err instanceof FetchError && err.type === "request-timeout":
+                    throw new RequestTimeoutAceApiError(err.message);
+                case err instanceof FetchError:
+                    throw new AceApiError(err.message);
+                default:
+                    throw err;
+            }
         }
 
         if (response.status !== 200) {

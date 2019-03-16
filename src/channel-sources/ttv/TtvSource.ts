@@ -1,4 +1,4 @@
-import { logger, createLogger, forget, Logger, Dict } from "../../base";
+import { formatErrorMessage, forget, logger, createLogger, Logger, Dict, UserError, GatewayError } from "../../base";
 import { ChannelGroup, Channel, ChannelSource, TtvChannel } from "../../types";
 import { ChannelRepository } from "../../channel-repository";
 import { AppData } from "../../app-data";
@@ -28,7 +28,7 @@ class TtvSource implements ChannelSourceWorker {
         this.appData = appData;
         this.groupsMap = groupsMap;
         this.ttvClient = ttvClient;
-        this.logger = createLogger(c => c`{yellow TTV Source}`);
+        this.logger = createLogger(c => c`{cyan TTV Source}`);
     }
 
     async open(): Promise<void> {
@@ -36,9 +36,19 @@ class TtvSource implements ChannelSourceWorker {
             return;
         }
 
+        if (!this.ttvClient.isEnabled()) {
+            return;
+        }
+
+        const session = await this.ttvClient.getSession();
+
+        if (!session) {
+            return;
+        }
+
         this.isRunning = true;
 
-        const data = await this.appData.readTtvSource(this.ttvClient.session);
+        const data = await this.appData.readTtvSource(session);
 
         if (data) {
             const channels = buildTtvChannels(
@@ -98,6 +108,16 @@ class TtvSource implements ChannelSourceWorker {
     }
 
     private async load(): Promise<void> {
+        if (!this.ttvClient.isEnabled()) {
+            return;
+        }
+
+        const session = await this.ttvClient.getSession();
+
+        if (!session) {
+            return;
+        }
+
         const lastFetched = Date.now();
 
         this.logger.debug(`load ..`);
@@ -110,13 +130,11 @@ class TtvSource implements ChannelSourceWorker {
                 this.ttvClient.getRawChannelCategories(),
             ]);
 
-            forget(
-                this.appData.writeTtvSource(this.ttvClient.session, {
-                    lastFetched,
-                    rawChannels,
-                    rawChannelCategories,
-                })
-            );
+            await this.appData.writeTtvSource(session, {
+                lastFetched,
+                rawChannels,
+                rawChannelCategories,
+            });
 
             const channels = buildTtvChannels(
                 rawChannels,
@@ -133,8 +151,7 @@ class TtvSource implements ChannelSourceWorker {
             this.logger.debug(c => c`load > success ({bold ${channels.length.toString()}} channels)`);
         }
         catch (err) {
-            this.logger.warn(`load > failed`);
-            this.logger.warn(err.stack || err);
+            this.logger.warn(`load > error`, [formatErrorMessage(err)]);
         }
         finally {
             this.lastFetched = lastFetched;

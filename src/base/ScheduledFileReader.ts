@@ -4,7 +4,6 @@ class ScheduledFileReader {
     private readonly path: string;
     private readonly highWaterMark: number;
     private canceled: boolean = false;
-    private readStartTime: number | undefined;
 
     constructor(path: string, highWaterMark: number) {
         this.path = path;
@@ -12,8 +11,6 @@ class ScheduledFileReader {
     }
 
     async read(): Promise<Buffer | null> {
-        this.readStartTime = Date.now();
-
         let buffer = await tryReadFile(this.path, this.highWaterMark);
 
         if (!buffer) {

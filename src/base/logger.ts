@@ -3,6 +3,7 @@ import d from "date-fns";
 import { splitLines } from "./splitLines";
 
 type Logger = {
+    prefix: Readonly<string>;
     error: LogMethod;
     warn: LogMethod;
     info: LogMethod;
@@ -42,40 +43,47 @@ function setupLogger(options: LoggerOptions): void {
     activeLevel = options.level;
 }
 
-function createLogger(prefixFormatter?: LogFormatter | string): Logger {
+function createLogger(prefix?: LogFormatter | string): Logger {
+    const prefixValue = prefix instanceof Function
+        ? prefix(chalk)
+        : prefix;
+
+    const prefixString = prefixValue || "";
+
     return {
+        prefix: prefixString,
         error: createLogMethod(
-            prefixFormatter,
+            prefixString,
             "error",
             "E",
             chalk.red,
         ),
         warn: createLogMethod(
-            prefixFormatter,
+            prefixString,
             "warning",
             "W",
             chalk.yellow,
         ),
         info: createLogMethod(
-            prefixFormatter,
+            prefixString,
             "info",
             "I",
             chalk.green,
         ),
         verbose: createLogMethod(
-            prefixFormatter,
+            prefixString,
             "verbose",
             "V",
             chalk.cyan,
         ),
         debug: createLogMethod(
-            prefixFormatter,
+            prefixString,
             "debug",
             "D",
             chalk.gray,
         ),
         silly: createLogMethod(
-            prefixFormatter,
+            prefixString,
             "silly",
             "S",
             chalk.magenta,
@@ -84,17 +92,11 @@ function createLogger(prefixFormatter?: LogFormatter | string): Logger {
 }
 
 function createLogMethod(
-    prefix: LogFormatter | string | undefined,
+    prefix: string,
     level: LogLevel,
     levelLabel: string,
     defaultStyle: Chalk,
 ): LogMethod {
-    const prefixValue = prefix instanceof Function
-        ? prefix(chalk)
-        : prefix;
-
-    const prefixString = prefixValue ? prefixValue + " " : "";
-
     return (
         message: LogFormatter | string | undefined,
         detailMessages?: ((c: Chalk) => string[]) | string[],
@@ -107,7 +109,7 @@ function createLogMethod(
 
         logLine(
             dateString,
-            prefixString,
+            prefix,
             levelLabel,
             defaultStyle,
             message,
@@ -162,7 +164,7 @@ function logLine(
             dateString + " " +
             defaultStyle(
                 chalk.bold(levelLabel) + " " +
-                prefixString +
+                (prefixString ? prefixString + " " : "") +
                 (messagePrefix ? messagePrefix + " " : "") +
                 line
             ));

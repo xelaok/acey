@@ -5,7 +5,7 @@ import fse from "fs-extra";
 import { createLogger, createRandomIdGenerator, splitLines, forget, Logger, ChildProcessHelper } from "../base";
 import { FFmpegConfig } from "../config";
 
-const generateTempId = createRandomIdGenerator(62, 32);
+const generateTempId = createRandomIdGenerator(62, 16);
 
 class FFmpegTask {
     workingDirectory: string;

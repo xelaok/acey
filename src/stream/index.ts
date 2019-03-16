@@ -1,2 +1,3 @@
 export * from "./StreamService";
-export { AceStreamClient } from "./types";
+export * from "./StreamContext";
+export { StreamClient } from "./types";

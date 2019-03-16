@@ -1,36 +1,35 @@
 import { PassThrough } from "stream";
 import { Response } from "node-fetch";
-import { createLogger, forget, stopWatch, Logger, Timer, GatewayError } from "../base";
-import { AceClient, AceStreamSource, AceStreamInfo } from "../ace-client";
+import { createLogger, forget, handleWithRetry, stopWatch, Logger, Timer, GatewayError } from "../base";
+import { AceClient, AceStreamSource, AceStream } from "../ace-client";
 import { StreamConfig } from "../config";
 import { StreamContextSharedBuffer } from "./StreamContextSharedBuffer";
-import { AceStreamClient } from "./types";
+import { StreamClient } from "./types";
 
 class StreamContext {
     onClosed: (() => void) | undefined;
 
     private readonly streamConfig: StreamConfig;
-    private readonly source: AceStreamSource;
-    private readonly logger: Logger;
+    private readonly stream: AceStream;
+    private readonly alias: string;
     private readonly aceClient: AceClient;
-    private readonly clients: Set<AceStreamClient>;
+    private readonly logger: Logger;
+    private readonly clients: Set<StreamClient>;
     private readonly sharedBuffer: StreamContextSharedBuffer;
     private readonly idleTimer: Timer;
-    private info: AceStreamInfo;
     private response$: Promise<Response> | null;
 
     constructor(
         streamConfig: StreamConfig,
-        source: AceStreamSource,
-        info: AceStreamInfo,
+        stream: AceStream,
         alias: string,
         aceClient: AceClient,
     ) {
         this.streamConfig = streamConfig;
-        this.source = source;
-        this.info = info;
-        this.logger = createLogger(c => c`{green Stream > ${alias}}`);
+        this.stream = stream;
+        this.alias = alias;
         this.aceClient = aceClient;
+        this.logger = createLogger(c => c`{green Stream > ${alias}}`);
         this.clients = new Set();
         this.sharedBuffer = new StreamContextSharedBuffer(streamConfig.sharedBufferLength);
         this.response$ = null;
@@ -60,10 +59,10 @@ class StreamContext {
         this.idleTimer.stop();
         this.endAllRequests();
 
-        await this.aceClient.stopStream(this.info);
+        await this.aceClient.requestStopStream(this.stream, this.alias);
     }
 
-    async addClient(): Promise<AceStreamClient> {
+    async createClient(): Promise<StreamClient> {
         if (!this.response$) {
             throw new Error("Can't create a request for a non-open stream.");
         }
@@ -72,17 +71,17 @@ class StreamContext {
 
         const stream = new PassThrough();
 
-        const client: AceStreamClient = {
+        const client: StreamClient = {
             stream,
             responseHeaders: response.headers,
         };
 
         stream.on("close", () => {
-            this.removeClient(client);
+            this.deleteClient(client);
         });
 
         stream.on("finish", () => {
-            this.removeClient(client);
+            this.deleteClient(client);
         });
 
         for (const chunk of this.sharedBuffer.chunks) {
@@ -94,7 +93,7 @@ class StreamContext {
         return client;
     }
 
-    removeClient(client: AceStreamClient): void {
+    deleteClient(client: StreamClient): void {
         if (!this.clients.has(client)) {
             return;
         }
@@ -106,15 +105,11 @@ class StreamContext {
         }
     }
 
-    updateInfo(info: AceStreamInfo): void {
-        this.info = info;
-    }
-
     private async init(): Promise<Response> {
         let response;
 
         try {
-            response = await this.requestStream();
+            response = await this.aceClient.requestStreamContent(this.stream, this.alias);
         }
         catch (err) {
             if (err instanceof GatewayError) {
@@ -134,7 +129,7 @@ class StreamContext {
                 }
                 catch (err) {
                     this.logger.silly(`response > stream write > ${err}`);
-                    this.removeClient(r);
+                    this.deleteClient(r);
                 }
             }
 
@@ -172,30 +167,6 @@ class StreamContext {
 
         for (const r of requests) {
             r.stream.end();
-        }
-    }
-
-    private async requestStream(): Promise<Response> {
-        this.logger.debug(c => c`{cyan ace engine} request content ..`);
-        try {
-            const streamInfo = await stopWatch(() => {
-                return this.aceClient.getStream(this.info);
-            });
-
-            const { result: response, time, timeText } = streamInfo;
-
-            this.logger.debug(c => c`{cyan ace engine} request content > success`, c => [
-                c`request time: {bold ${timeText}}`,
-            ]);
-
-            return response;
-        }
-        catch (err) {
-            this.logger.warn(c => c`{cyan ace engine} request content > failed`, c => [
-                c`error: {bold ${err.toString()}}`,
-            ]);
-
-            throw err;
         }
     }
 
