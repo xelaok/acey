@@ -1,8 +1,46 @@
-import { Dict, splitLines } from "../../base";
+import { splitLines, Dict } from "../../base";
 import { AceChannel, ChannelGroup, ChannelSource } from "../../types";
 import { AceStreamSourceType } from "../../ace-client";
 
 function parsePlaylist(content: string, streamGroupMap: Dict<ChannelGroup>): AceChannel[] {
+    let json;
+
+    try {
+        json = JSON.parse(content);
+    }
+    catch (err) {
+        json = null;
+    }
+
+    if (json) {
+        return parseJson(json, streamGroupMap);
+    }
+    else {
+        return parseM3U(content, streamGroupMap);
+    }
+}
+
+function parseJson(json: any, streamGroupMap: Dict<ChannelGroup>): AceChannel[] {
+    const channels: any[] = json.channels;
+
+    if (!channels) {
+        return [];
+    }
+
+    return channels.map(c => ({
+        id: Buffer.from(c.name).toString("hex"),
+        name: c.name,
+        group: streamGroupMap[c.cat] || null,
+        logoUrl: null,
+        source: ChannelSource.Ace,
+        streamSource: {
+            value: c.url,
+            type: AceStreamSourceType.Cid,
+        },
+    }));
+}
+
+function parseM3U(content: string, streamGroupMap: Dict<ChannelGroup>): AceChannel[] {
     let result: AceChannel[] = [];
 
     const lines = splitLines(content, true, true);
