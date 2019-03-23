@@ -1,7 +1,7 @@
 import { sortBy } from "lodash";
 import urlJoin from "url-join";
 import { CRLF } from "../../base";
-import { ChannelGroup, ChannelSource, StreamProtocol } from "../../types";
+import { ChannelGroup, ChannelSourceType, StreamProtocol } from "../../types";
 import { PlaylistFilterConfig, PlaylistFormatConfig } from "../../config";
 import { ChannelSourceInfo } from "../../channel-sources";
 import { HLS_PLAYLIST_NAME } from "../../hls";
@@ -112,10 +112,8 @@ function sortChannels(
 
 function getStreamTypePath(channelSourceInfo: ChannelSourceInfo): string {
     switch (channelSourceInfo.channel.source) {
-        case ChannelSource.Ace:
+        case ChannelSourceType.Ace:
             return "ace";
-        case ChannelSource.Ttv:
-            return "ttv";
         default:
             throw new Error(`Unknown channel source: ${channelSourceInfo.channel.source}`);
     }

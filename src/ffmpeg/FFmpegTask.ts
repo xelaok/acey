@@ -2,10 +2,8 @@ import path from "path";
 import { Readable } from "stream";
 import { spawn, ChildProcess } from "child_process";
 import fse from "fs-extra";
-import { createLogger, createRandomIdGenerator, splitLines, forget, Logger, ChildProcessHelper } from "../base";
+import { generateRandomId, splitLines, forget, createLogger, ChildProcessHelper, Logger } from "../base";
 import { FFmpegConfig } from "../config";
-
-const generateTempId = createRandomIdGenerator(62, 16);
 
 class FFmpegTask {
     workingDirectory: string;
@@ -26,7 +24,7 @@ class FFmpegTask {
         this.input = input;
         this.logger = createLogger(c => c`{bold ffmpeg > ${alias}}`);
         this.isOpened = false;
-        this.workingDirectory = path.join(this.config.outPath, "acey-ffmpeg-" + generateTempId());
+        this.workingDirectory = path.join(this.config.outPath, "acey-ffmpeg-" + generateRandomId(62, 16));
     }
 
     async open(): Promise<void> {

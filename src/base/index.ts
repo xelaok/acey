@@ -1,4 +1,5 @@
 export * from "./base64";
+export * from "./baseEncodeTables";
 export * from "./ChildProcessHelper";
 export * from "./consts";
 export * from "./delay";

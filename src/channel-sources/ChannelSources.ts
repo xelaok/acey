@@ -1,20 +1,17 @@
 import { Dict } from "../base";
 import { AppData } from "../app-data";
 import { ChannelRepository } from "../channel-repository";
-import { TtvClient } from "../ttv-client";
 import { ChannelSourceWorker, ChannelSourceInfo } from "./types";
 import { AceSource } from "./ace/AceSource";
-import { TtvSource } from "./ttv/TtvSource";
 
 import {
     ChannelSourceConfig,
-    AceUrlChannelSourceConfig,
-    TtvApiChannelSourceConfig,
+    AceChannelSourceConfig,
 } from "../config";
 
 import {
     ChannelGroup,
-    ChannelSource,
+    ChannelSourceType,
 } from "../types";
 
 class ChannelSources {
@@ -25,7 +22,6 @@ class ChannelSources {
         sourceConfigs: Dict<ChannelSourceConfig>,
         groupsMap: Dict<ChannelGroup>,
         appData: AppData,
-        ttvClient: TtvClient,
         channelRepository: ChannelRepository,
     ) {
         this.configs = new Map();
@@ -36,9 +32,9 @@ class ChannelSources {
 
             let worker;
 
-            switch (config.provider) {
-                case ChannelSource.Ace: {
-                    const c = config as AceUrlChannelSourceConfig;
+            switch (config.type) {
+                case ChannelSourceType.Ace: {
+                    const c = config as AceChannelSourceConfig;
                     worker = new AceSource(
                         c.url,
                         c.updateInterval,
@@ -48,19 +44,8 @@ class ChannelSources {
                     );
                     break;
                 }
-                case ChannelSource.Ttv: {
-                    const c = config as TtvApiChannelSourceConfig;
-                    worker = new TtvSource(
-                        c.updateInterval,
-                        channelRepository,
-                        appData,
-                        groupsMap,
-                        ttvClient,
-                    );
-                    break;
-                }
                 default:
-                    throw new Error(`Unknown source provider: "${config.provider}"`);
+                    throw new Error(`Unknown source type: "${config.type}"`);
             }
 
             this.configs.set(name, config);

@@ -2,36 +2,33 @@ const { merge } = require("lodash");
 
 const options = {
     base: {
-        target: {
+        targets: {
             node: "current",
         },
     },
     debug: {
         buildDir: "dev",
-        tsCheck: true,
-        bundle: {
-            sourceMap: "cheap-module-source-map",
-            beautify: false,
-            moduleConcatenation: false,
-        },
+        devtool: "cheap-module-source-map",
+        useCache: true,
+        transpileOnly: false,
+        beautify: false,
+        moduleConcatenation: false,
     },
     release: {
         buildDir: "dev",
-        tsCheck: true,
-        bundle: {
-            sourceMap: "source-map",
-            beautify: true,
-            moduleConcatenation: true,
-        },
+        devtool: "source-map",
+        useCache: true,
+        transpileOnly: false,
+        beautify: true,
+        moduleConcatenation: true,
     },
     production: {
         buildDir: "prod",
-        tsCheck: false,
-        bundle: {
-            sourceMap: "source-map",
-            beautify: true,
-            moduleConcatenation: true,
-        },
+        devtool: "source-map",
+        useCache: false,
+        transpileOnly: true,
+        beautify: true,
+        moduleConcatenation: true,
     },
 };
 

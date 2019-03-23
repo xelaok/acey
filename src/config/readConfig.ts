@@ -6,11 +6,10 @@ import { reduce } from "lodash";
 import { tryResolveFfmpegInstallerPath } from "./utils/tryResolveFfmpegInstallerPath"
 
 import {
-    AceUrlChannelSourceConfig,
+    AceChannelSourceConfig,
     Config,
     ServerConfig,
     AceApiConfig,
-    TtvApiConfig,
     StreamConfig,
     FFmpegConfig,
     HlsConfig,
@@ -20,24 +19,21 @@ import {
     PlaylistFormatConfig,
     ProgressiveConfig,
     ChannelSourceConfig,
-    TtvApiChannelSourceConfig,
     RawMainConfig,
     RawServerConfig,
     RawAceApiConfig,
-    RawTtvApiConfig,
     RawStreamConfig,
     RawFFmpegConfig,
     RawHlsConfig,
     RawHlsProfile,
     RawProgressiveConfig,
     RawLoggerConfig,
-    RawAceUrlChannelSourceConfig,
+    RawAceChannelSourceConfig,
     RawChannelGroupConfig,
     RawPlaylistConfig,
     RawPlaylistFilterConfig,
     RawPlaylistFormatConfig,
     RawChannelSourceConfig,
-    RawTtvApiChannelSourceConfig,
 } from "./types";
 
 import {
@@ -49,7 +45,7 @@ import {
     LogLevel,
 } from "../base";
 
-import { ChannelGroup, ChannelSource, StreamProtocol } from "../types";
+import { ChannelGroup, ChannelSourceType, StreamProtocol } from "../types";
 
 const basePath = path.resolve(__dirname, "../../config");
 const mainPath = path.join(basePath, "main.yaml");
@@ -90,7 +86,6 @@ async function readConfig(): Promise<Config> {
         app: rawConfig.app,
         server: parseServerConfig(rawConfig.server),
         aceApi: parseAceApiConfig(rawConfig.aceApi),
-        ttvApi: parseTtvApiConfig(rawConfig.ttvApi),
         stream: parseStreamConfig(rawConfig.stream),
         ffmpeg: parseFfmpegConfig(rawConfig.ffmpeg, vmemTempDir),
         hls: parseHlsConfig(rawConfig.hls),
@@ -126,15 +121,12 @@ async function readChannelSources(): Promise<Dict<ChannelSourceConfig>> {
     return reduce(
         rawConfigs,
         (result, raw, key) => {
-            switch (raw.provider) {
-                case "ace-url":
-                    result[key] = parseAceUrlChannelSourceConfig(raw as RawAceUrlChannelSourceConfig);
-                    break;
-                case "ttv-api":
-                    result[key] = parseTtvChannelSourceConfig(raw as RawTtvApiChannelSourceConfig);
+            switch (raw.type) {
+                case "ace":
+                    result[key] = parseAceChannelSourceConfig(raw as RawAceChannelSourceConfig);
                     break;
                 default:
-                    throw new Error(`Unknown channel source provider: "${raw.provider}"`);
+                    throw new Error(`Unknown channel source type: "${raw.type}"`);
             }
             return result;
         },
@@ -259,13 +251,6 @@ function parseAceApiConfig(raw: RawAceApiConfig): AceApiConfig {
     };
 }
 
-function parseTtvApiConfig(raw: RawTtvApiConfig): TtvApiConfig {
-    return {
-        ...raw,
-        requestTimeout: parseDuration(raw.requestTimeout),
-    };
-}
-
 function parseStreamConfig(raw: RawStreamConfig): StreamConfig {
     return {
         ...raw,
@@ -338,19 +323,11 @@ function parseLoggerLevel(raw: string): LogLevel {
     }
 }
 
-function parseAceUrlChannelSourceConfig(raw: RawAceUrlChannelSourceConfig): AceUrlChannelSourceConfig {
+function parseAceChannelSourceConfig(raw: RawAceChannelSourceConfig): AceChannelSourceConfig {
     return {
-        provider: ChannelSource.Ace,
+        type: ChannelSourceType.Ace,
         label: raw.label,
         url: raw.url,
-        updateInterval: parseDuration(raw.updateInterval),
-    };
-}
-
-function parseTtvChannelSourceConfig(raw: RawTtvApiChannelSourceConfig): TtvApiChannelSourceConfig {
-    return {
-        provider: ChannelSource.Ttv,
-        label: raw.label,
         updateInterval: parseDuration(raw.updateInterval),
     };
 }

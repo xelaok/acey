@@ -1,19 +1,16 @@
 import { Request } from "hapi";
 import { ChannelRepository } from "../../channel-repository";
-import { Channel, ChannelSource } from "../../types";
+import { Channel, ChannelSourceType } from "../../types";
 
 function parseChannel(
     request: Request,
     channelRepository: ChannelRepository,
 ): Channel | null {
-    let source: ChannelSource;
+    let source: ChannelSourceType;
 
     switch (request.params.channelSource) {
         case "ace":
-            source = ChannelSource.Ace;
-            break;
-        case "ttv":
-            source = ChannelSource.Ttv;
+            source = ChannelSourceType.Ace;
             break;
         default:
             return null;

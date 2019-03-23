@@ -1,14 +1,12 @@
 import urljoin from "url-join";
 import fetch, { Response, FetchError } from "node-fetch";
-import { handleWithRetry, createRandomIdGenerator, createLogger, stopWatch, Logger } from "../base";
+import { handleWithRetry, generateRandomId, createLogger, stopWatch, Logger } from "../base";
 import { AceApiConfig } from "../config";
 import { AceStreamSource, AceStream } from "./types";
 import { AceApiError, RequestTimeoutAceApiError } from "./errors";
 import { formatStreamSourceQuery } from "./utils/formatStreamSourceQuery";
 import { fetchRedirectUrl } from "./utils/fetchRedirectUrl";
 import { parseInfohash } from "./utils/parseInfohash";
-
-const generateSid = createRandomIdGenerator(62, 16);
 
 class AceClient {
     private readonly config: AceApiConfig;
@@ -23,7 +21,7 @@ class AceClient {
         const logger = this.createChannelLogger(`request ${alias}`);
         logger.debug("..");
         try {
-            const sid = generateSid();
+            const sid = generateRandomId(62, 16);
 
             const { timeText, result: redirectUrl } = await stopWatch(() => {
                 return handleWithRetry(

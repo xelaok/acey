@@ -1,7 +1,6 @@
 import { Request, ResponseToolkit, ResponseObject } from "hapi";
 import { logger, UserError, GatewayError } from "../../base";
 import { AceApiError } from "../../ace-client";
-import { TtvApiError } from "../../ttv-client";
 
 function createRouteHandler(fn: (request: Request, h: ResponseToolkit) => Promise<ResponseObject | symbol>) {
     return async (request: Request, h: ResponseToolkit) => {
@@ -17,7 +16,6 @@ function createRouteHandler(fn: (request: Request, h: ResponseToolkit) => Promis
                     logger.warn(err.toString());
                     break;
                 case err instanceof AceApiError:
-                case err instanceof TtvApiError:
                     code = 502;
                     logger.silly(err.toString());
                     break;

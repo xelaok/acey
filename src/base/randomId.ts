@@ -1,10 +1,8 @@
 import nanoid from "nanoid/generate";
+import { baseEncodeTables, BaseEncode } from "./baseEncodeTables";
 
-const ALPHABET = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ+/";
-
-function createRandomIdGenerator(base: number, length: number): () => string {
-    const alphabet = ALPHABET.substr(0, Math.min(base, 64));
-    return () => nanoid(alphabet, length);
+function generateRandomId(base: BaseEncode, length: number): string {
+    return nanoid(baseEncodeTables[base], length);
 }
 
-export { createRandomIdGenerator }
+export { generateRandomId }

@@ -1,11 +1,10 @@
 import { Dict, LoggerOptions } from "../base";
-import { ChannelGroup, ChannelSource, StreamProtocol } from "../types";
+import { ChannelGroup, ChannelSourceType, StreamProtocol } from "../types";
 
 type RawMainConfig = {
     app: RawAppConfig;
     server: RawServerConfig;
     aceApi: RawAceApiConfig;
-    ttvApi: RawTtvApiConfig;
     stream: RawStreamConfig;
     ffmpeg: RawFFmpegConfig;
     hls: RawHlsConfig;
@@ -23,13 +22,6 @@ type RawServerConfig = {
 };
 
 type RawAceApiConfig = {
-    endpoint: string;
-    requestTimeout: string;
-};
-
-type RawTtvApiConfig = {
-    username: string;
-    password: string;
     endpoint: string;
     requestTimeout: string;
 };
@@ -70,16 +62,12 @@ type RawLoggerConfig = {
 }
 
 type RawChannelSourceConfig = {
-    provider: string;
+    type: string;
     label: string;
 };
 
-type RawAceUrlChannelSourceConfig = RawChannelSourceConfig & {
+type RawAceChannelSourceConfig = RawChannelSourceConfig & {
     url: string;
-    updateInterval: string;
-};
-
-type RawTtvApiChannelSourceConfig = RawChannelSourceConfig & {
     updateInterval: string;
 };
 
@@ -105,7 +93,6 @@ type Config = {
     app: AppConfig;
     server: ServerConfig;
     aceApi: AceApiConfig;
-    ttvApi: TtvApiConfig;
     stream: StreamConfig;
     ffmpeg: FFmpegConfig;
     hls: HlsConfig;
@@ -128,13 +115,6 @@ type ServerConfig = {
 };
 
 type AceApiConfig = {
-    endpoint: string;
-    requestTimeout: number;
-};
-
-type TtvApiConfig = {
-    username: string;
-    password: string;
     endpoint: string;
     requestTimeout: number;
 };
@@ -171,16 +151,12 @@ type ProgressiveConfig = {
 };
 
 type ChannelSourceConfig = {
-    provider: ChannelSource;
+    type: ChannelSourceType;
     label: string;
 };
 
-type AceUrlChannelSourceConfig = ChannelSourceConfig & {
+type AceChannelSourceConfig = ChannelSourceConfig & {
     url: string;
-    updateInterval: number;
-};
-
-type TtvApiChannelSourceConfig = ChannelSourceConfig & {
     updateInterval: number;
 };
 
@@ -208,7 +184,6 @@ export {
     RawAppConfig,
     RawServerConfig,
     RawAceApiConfig,
-    RawTtvApiConfig,
     RawStreamConfig,
     RawFFmpegConfig,
     RawHlsConfig,
@@ -217,8 +192,7 @@ export {
     RawLoggerConfig,
     RawChannelGroupConfig,
     RawChannelSourceConfig,
-    RawAceUrlChannelSourceConfig,
-    RawTtvApiChannelSourceConfig,
+    RawAceChannelSourceConfig,
     RawPlaylistConfig,
     RawPlaylistFilterConfig,
     RawPlaylistFormatConfig,
@@ -226,15 +200,13 @@ export {
     AppConfig,
     ServerConfig,
     AceApiConfig,
-    TtvApiConfig,
     StreamConfig,
     FFmpegConfig,
     HlsConfig,
     HlsProfile,
     ProgressiveConfig,
     ChannelSourceConfig,
-    AceUrlChannelSourceConfig,
-    TtvApiChannelSourceConfig,
+    AceChannelSourceConfig,
     PlaylistConfig,
     PlaylistFilterConfig,
     PlaylistFormatConfig,

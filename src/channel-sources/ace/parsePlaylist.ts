@@ -1,5 +1,5 @@
 import { splitLines, Dict } from "../../base";
-import { AceChannel, ChannelGroup, ChannelSource } from "../../types";
+import { AceChannel, ChannelGroup, ChannelSourceType } from "../../types";
 import { AceStreamSourceType } from "../../ace-client";
 
 function parsePlaylist(content: string, streamGroupMap: Dict<ChannelGroup>): AceChannel[] {
@@ -32,7 +32,7 @@ function parseJson(json: any, streamGroupMap: Dict<ChannelGroup>): AceChannel[] 
         name: c.name,
         group: streamGroupMap[c.cat] || null,
         logoUrl: null,
-        source: ChannelSource.Ace,
+        source: ChannelSourceType.Ace,
         streamSource: {
             value: c.url,
             type: AceStreamSourceType.Cid,
@@ -105,7 +105,7 @@ function parseM3U(content: string, streamGroupMap: Dict<ChannelGroup>): AceChann
             name,
             group,
             logoUrl: null,
-            source: ChannelSource.Ace,
+            source: ChannelSourceType.Ace,
             streamSource: {
                 value: cid,
                 type: AceStreamSourceType.Cid,

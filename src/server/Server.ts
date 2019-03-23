@@ -61,7 +61,7 @@ class Server {
     }
 
     start(): Promise<void> {
-        logger.info(c => "Starting server...");
+        logger.info("Starting server...");
         return this.server.start();
     }
 }

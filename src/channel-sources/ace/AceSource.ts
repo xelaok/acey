@@ -2,7 +2,7 @@ import { Dict, logger, createLogger, fetchContent, forget, Logger, FetchContentR
 import { ChannelRepository } from "../../channel-repository";
 import { AppData } from "../../app-data";
 import { parsePlaylist } from "./parsePlaylist";
-import { ChannelGroup, Channel, ChannelSource } from "../../types";
+import { ChannelGroup, Channel } from "../../types";
 import { ChannelSourceWorker } from "../types";
 
 class AceSource implements ChannelSourceWorker {

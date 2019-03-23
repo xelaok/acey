@@ -1,4 +1,0 @@
-filter: ~
-format: default
-protocol: hls/v3
-channelSources: ttv

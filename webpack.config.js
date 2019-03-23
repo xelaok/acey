@@ -2,7 +2,6 @@ const path = require("path");
 const webpack = require("webpack");
 const CleanPlugin = require("clean-webpack-plugin");
 const TerserPlugin = require("terser-webpack-plugin");
-const ForkTsCheckerPlugin = require("fork-ts-checker-webpack-plugin");
 const nodeExternals = require("webpack-node-externals");
 const getBuildConfig = require("./build-config");
 const pkg = require("./package.json");
@@ -19,7 +18,7 @@ function getConfig(buildConfig) {
         mode: "none",
         target: "node",
         externals: nodeExternals(),
-        devtool: buildConfig.bundle.sourceMap,
+        devtool: buildConfig.devtool,
         node: {
             __dirname: false,
         },
@@ -43,14 +42,12 @@ function getConfig(buildConfig) {
                         {
                             loader: "babel-loader",
                             options: {
-                                cacheDirectory: true,
+                                cacheDirectory: buildConfig.useCache,
                                 presets: [
                                     ["@babel/env", {
                                         loose: true,
                                         modules: false,
-                                        targets: {
-                                            node: buildConfig.target.node,
-                                        },
+                                        targets: buildConfig.targets,
                                     }],
                                 ],
                                 plugins: [
@@ -59,20 +56,21 @@ function getConfig(buildConfig) {
                             },
                         },
                         {
-                            loader: "ts-loader",
+                            loader: "awesome-typescript-loader",
                             options: {
-                                transpileOnly: true,
+                                useCache: buildConfig.useCache,
+                                transpileOnly: buildConfig.transpileOnly,
                             },
-                        },
+                        }
                     ],
                 },
             ],
         },
         optimization: {
-            minimize: buildConfig.bundle.beautify,
-            concatenateModules: buildConfig.bundle.moduleConcatenation,
-            usedExports: true,
+            minimize: buildConfig.beautify,
+            concatenateModules: buildConfig.moduleConcatenation,
             sideEffects: true,
+            usedExports: true,
             minimizer: [
                 new TerserPlugin({
                     parallel: true,
@@ -93,7 +91,6 @@ function getConfig(buildConfig) {
             new webpack.DefinePlugin({
                 "process.env.appVersion": JSON.stringify(pkg.version),
             }),
-            buildConfig.tsCheck && new ForkTsCheckerPlugin(),
-        ].filter(p => !!p),
+        ],
     };
 }

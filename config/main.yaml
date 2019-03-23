@@ -10,12 +10,6 @@ aceApi:
     endpoint: http://127.0.0.1:6878
     requestTimeout: 1m
 
-ttvApi:
-    username: ~
-    password: ~
-    endpoint: http://api.torrent-tv.ru
-    requestTimeout: 20s
-
 stream:
     stopDelay: 3s
     responseTimeout: 30s
@@ -41,7 +35,6 @@ hls:
             -c copy
             -hls_time {hlsTime}
             -hls_list_size {hlsListSize}
-            -hls_segment_type mpegts
             -hls_segment_filename %d.ts
             -f hls
             {index}

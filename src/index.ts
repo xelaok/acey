@@ -4,7 +4,6 @@ import { logger, setupLogger, handleCleanup, handleExceptions } from "./base";
 import { readConfig, Config } from "./config";
 import { AppData } from "./app-data";
 import { AceClient } from "./ace-client";
-import { TtvClient } from "./ttv-client";
 import { ChannelRepository } from "./channel-repository";
 import { FFmpegService } from "./ffmpeg";
 import { ChannelSources } from "./channel-sources";
@@ -29,11 +28,6 @@ async function main(): Promise<void> {
         config.aceApi,
     );
 
-    const ttvClient = new TtvClient(
-        config.ttvApi,
-        appData,
-    );
-
     const ffmpegService = new FFmpegService(
         config.ffmpeg,
     );
@@ -44,14 +38,12 @@ async function main(): Promise<void> {
         config.channelSources,
         config.groupsMap,
         appData,
-        ttvClient,
         channelRepository,
     );
 
     const streamService = new StreamService(
         config.stream,
         aceClient,
-        ttvClient,
     );
 
     const progressiveService = new ProgressiveService(
@@ -102,7 +94,6 @@ function logConfig(config: Config, appData: AppData): void {
     logger.verbose(c => c`app data         {bold ${appData.dataPath}}`);
     logger.verbose(c => c`server.binding   {bold ${config.server.binding}}`);
     logger.verbose(c => c`aceApi.endpoint  {bold ${config.aceApi.endpoint}}`);
-    logger.verbose(c => c`ttvApi.endpoint  {bold ${config.ttvApi.endpoint}}`);
     logger.verbose(c => c`ffmpeg.binPath   {bold ${config.ffmpeg.binPath}}`);
     logger.verbose(c => c`ffmpeg.outPath   {bold ${config.ffmpeg.outPath}}`);
     logger.verbose(c => c`logger.level     {bold ${config.logger.level}}`);
