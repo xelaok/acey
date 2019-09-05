@@ -2,7 +2,7 @@
 
 Ace Stream Proxy
 
-![console](https://raw.githubusercontent.com/xelaok/acey/master/wiki/console.png)
+![console](https://raw.githubusercontent.com/xelaok/acey/master/wiki/landing-image.png)
 
 ## Installing
 - Install Ace Stream server:<br />
@@ -28,6 +28,6 @@ By default channels playlists will be available at the following urls:<br />
 - http://localhost:8100/ace.m3u
 - http://localhost:8100/ace-hls.m3u
 
-## All-in-one
+## All-in-One
 - https://hub.docker.com/r/sybdata/ace86a37
 - https://hub.docker.com/r/sybdata/aceubase
