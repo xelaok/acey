@@ -31,3 +31,7 @@ By default channels playlists will be available at the following urls:<br />
 ## All-in-One
 - https://hub.docker.com/r/sybdata/ace86a37
 - https://hub.docker.com/r/sybdata/aceubase
+
+## License
+
+[MIT](./LICENSE)
