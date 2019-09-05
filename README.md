@@ -34,4 +34,4 @@ By default channels playlists will be available at the following urls:<br />
 
 ## License
 
-[MIT](./LICENSE)
+[MIT](./LICENSE.md)
