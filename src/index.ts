@@ -1,6 +1,6 @@
 import urlJoin from "url-join";
 import { sortBy } from "lodash";
-import { logger, setupLogger, handleCleanup, handleExceptions } from "./base";
+import { logger, setupLogger, formatErrorMessage, handleCleanup, handleExceptions } from "./base";
 import { readConfig, Config } from "./config";
 import { AppData } from "./app-data";
 import { AceClient } from "./ace-client";
@@ -13,7 +13,7 @@ import { HlsService } from "./hls";
 import { Server } from "./server";
 
 main().catch(err => {
-    logger.error(err.stack || err);
+    logger.error(formatErrorMessage(err));
 });
 
 async function main(): Promise<void> {

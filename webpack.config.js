@@ -1,6 +1,6 @@
 const path = require("path");
 const webpack = require("webpack");
-const CleanPlugin = require("clean-webpack-plugin");
+let { CleanWebpackPlugin } = require("clean-webpack-plugin");
 const TerserPlugin = require("terser-webpack-plugin");
 const nodeExternals = require("webpack-node-externals");
 const getBuildConfig = require("./build-config");
@@ -87,7 +87,7 @@ function getConfig(buildConfig) {
             ],
         },
         plugins: [
-            new CleanPlugin({ verbose: false }),
+            new CleanWebpackPlugin({ verbose: false }),
             new webpack.DefinePlugin({
                 "process.env.appVersion": JSON.stringify(pkg.version),
             }),
