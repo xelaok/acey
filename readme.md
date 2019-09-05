@@ -7,6 +7,8 @@ Ace Stream Proxy
 ## Installing
 - Install Ace Stream server:<br />
   https://github.com/magnetikonline/docker-acestream-server
+  
+- Install [NodeJS](https://nodejs.org/en/) & NPM  
 
 - Install and build proxy:
 
