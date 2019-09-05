@@ -27,3 +27,7 @@ node .
 By default channels playlists will be available at the following urls:<br />
 - http://localhost:8100/ace.m3u
 - http://localhost:8100/ace-hls.m3u
+
+## All-in-one
+- https://hub.docker.com/r/sybdata/ace86a37
+- https://hub.docker.com/r/sybdata/aceubase
