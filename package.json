@@ -24,7 +24,7 @@
         "fs-extra": "7.0.1",
         "hapi": "18.1.0",
         "js-yaml": "^3.13.1",
-        "lodash": "^4.17.15",
+        "lodash": "^4.17.21",
         "mime-types": "2.1.22",
         "nanoid": "2.0.1",
         "node-cleanup": "2.1.2",
