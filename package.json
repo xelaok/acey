@@ -29,7 +29,7 @@
         "nanoid": "2.0.1",
         "node-cleanup": "2.1.2",
         "node-fetch": "2.3.0",
-        "qs": "6.7.0",
+        "qs": "6.7.3",
         "source-map-support": "0.5.11",
         "string-format": "2.0.0",
         "url-join": "4.0.1"
